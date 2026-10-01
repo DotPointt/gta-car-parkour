@@ -12,7 +12,16 @@ npm run dev
 
 Открыть http://localhost:5173
 
-Продакшн-сборка: `npm run build`, результат в `dist/` (статический сайт).
+Продакшн-сборка: `npm run build`, результат в `dist/` (статический сайт, пути относительные —
+работает из любой подпапки).
+
+## Онлайн-версия (GitHub Pages)
+
+Игра публикуется бесплатно на GitHub Pages: **https://dotpointt.github.io/gta-car-parkour/**
+
+- Workflow `.github/workflows/deploy.yml` собирает игру и выкладывает `dist/` при каждом пуше в `main`
+  (или вручную: Actions → Deploy to GitHub Pages → Run workflow).
+- Один раз в настройках репозитория: Settings → Pages → Build and deployment → Source: **GitHub Actions**.
 
 ## Управление
 
