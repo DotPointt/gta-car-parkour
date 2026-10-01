@@ -102,6 +102,32 @@ export class Kit {
     return endCursor(f);
   }
 
+  /**
+   * Straight road with open transverse slots at the given z (low windmill blades dive through them).
+   * Only the meshes are cut: the collider stays continuous, so the wheels roll over a slot without
+   * dropping in (blades are kinematic and never collide with the static road anyway).
+   */
+  slottedRoad(c: Cursor, length: number, w: number, slots: number[], gap: number) {
+    const f = lineFrames(c, length, 2);
+    this.b.extrude(f, roadProfile(w), { mesh: false });
+    this.trace(f);
+    let z0 = 0;
+    for (const z of [...slots].sort((a, b) => a - b).concat(Infinity)) {
+      const z1 = Math.min(length, z - gap / 2);
+      if (z1 - z0 > 0.5) {
+        const piece = lineFrames({ p: local(c, 0, 0, z0), yaw: c.yaw }, z1 - z0, 2);
+        for (const fr of piece) fr.d += z0; // keeps the road texture continuous across the slots
+        this.b.extrude(piece, roadProfile(w), { collider: false });
+      }
+      if (z === Infinity) break;
+      // hazard stripes along both lips of the slot
+      for (const s of [-1, 1])
+        this.b.addBox(local(c, 0, 0.01, z + s * (gap / 2 + 0.3)), new THREE.Vector3(w, 0.02, 0.6), c.yaw, 'hazard', 'hazard', 'dark', false);
+      z0 = z + gap / 2;
+    }
+    return endCursor(f);
+  }
+
   pad(c: Cursor, w: number, len: number) {
     this.b.addBox(local(c, 0, -0.75, len / 2), new THREE.Vector3(w, 1.5, len), c.yaw, 'plate', 'hazard');
     for (let z = 2; z <= len; z += 4) this.path.push(local(c, 0, 0, z));
@@ -173,7 +199,10 @@ export class Kit {
   }
 
   // ---- moving obstacles ------------------------------------------------------------------
-  /** Horizontal propeller at car height, rotating around a post in the middle of the road. */
+  /**
+   * Horizontal propeller at car height, rotating around a post in the middle of the road.
+   * `reach` = radius of the swept circle (outer edge of the blade tips, colliders included).
+   */
   propeller(c: Cursor, z: number, omega: number, phase: number, blades: number, reach: number) {
     const pivot = local(c, 0, 0, z);
     const post = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 3.2, 20), this.mats.dark);
@@ -185,7 +214,8 @@ export class Kit {
     cap.position.y = 1.0;
     group.add(cap);
     const colliders: RAPIER.ColliderDesc[] = [];
-    const len = reach - 1.4;
+    const tipR = 0.9;
+    const len = reach - tipR - 1.4;
     for (let k = 0; k < blades; k++) {
       const a = (k / blades) * Math.PI * 2;
       const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, a, 0.3, 'YXZ'));
@@ -194,11 +224,14 @@ export class Kit {
       blade.position.copy(off);
       blade.quaternion.copy(q);
       group.add(blade);
-      const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.7, 16), this.mats.danger);
-      tip.position.copy(new THREE.Vector3(0, 0, 1.4 + len).applyAxisAngle(Y, a)).setY(0.95);
+      // rounded tip: it is what grazes a car squeezing past along the road edge, so it has a collider too
+      const tipPos = new THREE.Vector3(0, 0, 1.4 + len).applyAxisAngle(Y, a).setY(0.95);
+      const tip = new THREE.Mesh(new THREE.CylinderGeometry(tipR, tipR, 0.7, 16), this.mats.danger);
+      tip.position.copy(tipPos);
       tip.quaternion.copy(q);
       group.add(tip);
       colliders.push(RAPIER.ColliderDesc.cuboid(0.9, 0.35, len / 2).setTranslation(off.x, off.y, off.z).setRotation(q));
+      colliders.push(RAPIER.ColliderDesc.cylinder(0.35, tipR).setTranslation(tipPos.x, tipPos.y, tipPos.z).setRotation(q));
     }
     this.b.addKinematic(
       group,
@@ -210,10 +243,12 @@ export class Kit {
     );
   }
 
-  /** Windmill over the road (axis = road direction); blades sweep down onto the road. */
-  windmill(c: Cursor, x: number, z: number, omega: number, phase: number, blades: number) {
-    const R = 11.6;
-    const hub = local(c, x, 12.2, z);
+  /**
+   * Windmill over the road (axis = road direction). With hubH < R the lower blades dive through the
+   * road (build it with slottedRoad) and sweep across its whole width at car height.
+   */
+  windmill(c: Cursor, x: number, z: number, omega: number, phase: number, blades: number, R: number, hubH: number) {
+    const hub = local(c, x, hubH, z);
     const base = yawQuat(c.yaw);
     const group = new THREE.Group();
     const hubMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 1.8, 24), this.mats.danger);
@@ -244,6 +279,7 @@ export class Kit {
         q.copy(base).multiply(spin);
       },
       colliders,
+      { cutsThrough: hubH < R },
     );
   }
 

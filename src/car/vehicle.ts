@@ -39,6 +39,8 @@ const AIR_ROLL = 3.2;
 const AIR_MAX_RATE = 3.0;
 
 const INERTIA = new THREE.Vector3(3000, 3400, 800); // pitch, yaw, roll
+/** A blade that cut through the car stays a ghost this many steps after the last contact. */
+const GHOST_STEPS = 8;
 const COM = new THREE.Vector3(0, -0.2, 0.05);
 const WHEELBASE = CAR.frontZ - CAR.rearZ;
 const TRACK = CAR.wheelX * 2;
@@ -142,6 +144,16 @@ export class Vehicle {
   scrapePoint = new THREE.Vector3();
   /** Speed at which a moving obstacle is currently pressing into the car (0 = none). */
   crushing = 0;
+  /**
+   * Kinematic bodies that currently cut through the car instead of pushing it: body handle -> steps
+   * left. Pass `hooks` to world.step() so the solver skips their impulses (contacts are still reported).
+   */
+  private ghosts = new Map<number, number>();
+  readonly hooks: RAPIER.PhysicsHooks = {
+    filterContactPair: (_c1, _c2, b1, b2) =>
+      this.ghosts.has(b1) || this.ghosts.has(b2) ? RAPIER.SolverFlags.EMPTY : RAPIER.SolverFlags.COMPUTE_IMPULSE,
+    filterIntersectionPair: () => true,
+  };
   private engineBrake = 0;
 
   // kinematics (world)
@@ -187,7 +199,7 @@ export class Vehicle {
     );
     const hull = RAPIER.ColliderDesc.convexHull(this.model.hullPoints)!;
     this.collider = world.createCollider(
-      hull.setDensity(0).setFriction(0.35).setRestitution(0.0).setCollisionGroups(CAR_GROUPS),
+      hull.setDensity(0).setFriction(0.35).setRestitution(0.0).setCollisionGroups(CAR_GROUPS).setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS),
       this.body,
     );
 
@@ -254,6 +266,7 @@ export class Vehicle {
       w.grounded = false;
     }
     this.damage.reset();
+    this.ghosts.clear();
     this.model.root.position.copy(pos);
     this.model.root.quaternion.copy(quat);
   }
@@ -568,6 +581,12 @@ export class Vehicle {
     this.crushing = 0;
     const impacts: ImpactEvent[] = [];
     const vo = new THREE.Vector3();
+    let supported = this.groundedCount > 0;
+    const squeeze = { body: -1, press: 1.5, vo: new THREE.Vector3() };
+    for (const [h, n] of this.ghosts) {
+      if (n <= 1) this.ghosts.delete(h);
+      else this.ghosts.set(h, n - 1);
+    }
     this.world.contactPairsWith(this.collider, (other) => {
       this.world.contactPair(this.collider, other, (manifold, flipped) => {
         const nc = manifold.numContacts();
@@ -611,15 +630,41 @@ export class Vehicle {
         if (approach > minApproach && pushed > Math.max(0.6, approach * 0.25)) impacts.push({ point: pt, normal: dir, speed: fromBelow ? approach - 3 : approach });
         // a moving obstacle (propeller blade) pressing into the car keeps crushing it
         if (ob && ob.isKinematic()) {
+          const ghost = this.ghosts.has(ob.handle);
+          // a blade that cuts through the car stays a ghost while they overlap
+          if (ghost) this.ghosts.set(ob.handle, GHOST_STEPS);
           const press = vo.dot(dir);
           if (press > 1.0) {
             _invQ.copy(this.currQuat).invert();
             this.damage.crush(localPt, dir.clone().applyQuaternion(_invQ), (press - 1.0) * dt * 0.38);
             this.crushing = Math.max(this.crushing, press);
+            // a low windmill blade swinging down onto the car
+            if (!ghost && movingSurfaces.get(ob.handle)?.cutsThrough && dir.y < -0.35 && press > squeeze.press) {
+              squeeze.body = ob.handle;
+              squeeze.press = press;
+              squeeze.vo.copy(vo);
+            }
           }
-        }
+        } else if (dir.y > 0.5) supported = true;
       });
     });
+
+    // A blade swinging down onto a car that stands on the road cannot be resolved by the rigid solver:
+    // the car is pinned between an unstoppable kinematic body and the track and gets pushed through
+    // the road. Instead the blade cuts through the (crushed) car and sweeps it along its swing.
+    // Only for bodies marked cutsThrough: every other obstacle keeps plain rigid contacts.
+    if (squeeze.body >= 0 && supported) {
+      const sweep = _a.set(squeeze.vo.x, 0, squeeze.vo.z);
+      const sp = sweep.length();
+      if (sp > 2) {
+        this.ghosts.set(squeeze.body, GHOST_STEPS);
+        sweep.multiplyScalar(1 / sp);
+        const along = postV.dot(sweep);
+        if (along < sp) postV.addScaledVector(sweep, sp - along);
+        postV.y = Math.max(postV.y, 1.5);
+        b.setLinvel(postV, true);
+      }
+    }
 
     if (impacts.length) {
       impacts.sort((a, b) => b.speed - a.speed);

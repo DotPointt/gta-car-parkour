@@ -427,7 +427,7 @@ export class Game {
     const driving = this.state === 'racing' || this.state === 'finished';
     this.course.prepareStep(this.simTime, dt);
     car.step(dt, this.input.drive, driving);
-    this.world.step();
+    this.world.step(this.events, car.hooks); // Rapier runs physics hooks only together with an event queue
     this.simTime += dt;
     car.afterStep();
     this.debris.afterStep(dt);
@@ -457,6 +457,7 @@ export class Game {
   }
 
   private downRay = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
+  private events = new RAPIER.EventQueue(true);
 
   /** Fell off: far below the last road contact with no track underneath (long jumps are fine). */
   private isOffTrack() {

@@ -21,6 +21,11 @@ import { GRAVITY } from './constants';
 export interface MovingSurface {
   /** Velocity of the surface at a world-space point during the current physics step. */
   velocityAt(point: THREE.Vector3, out: THREE.Vector3): THREE.Vector3;
+  /**
+   * Swings down through the road (low windmill blades): when it pins the car against the track it
+   * cuts through the car instead of pushing it through the road (see Vehicle.afterStep).
+   */
+  readonly cutsThrough?: boolean;
 }
 
 /** Rigid body handle -> moving surface (used by the tyre model to get relative velocity). */

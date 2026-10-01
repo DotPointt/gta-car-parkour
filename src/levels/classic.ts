@@ -11,13 +11,13 @@ export const CLASSIC_SEGMENTS: SegmentPlan[] = [
   {
     type: 'propellers',
     params: {
-      spacing: 38,
+      spacing: 34,
       units: [
-        { omega: 0.65, phase: 0, blades: 2 },
-        { omega: -0.7, phase: 0.8, blades: 3 },
-        { omega: 0.55, phase: 1.6, blades: 3 },
-        { omega: -0.9, phase: 0.3, blades: 2 },
-        { omega: 0.7, phase: 2.2, blades: 3 },
+        { omega: 1.7, phase: 0, blades: 2 },
+        { omega: -1.9, phase: 0.8, blades: 3 },
+        { omega: 1.6, phase: 1.6, blades: 3 },
+        { omega: -2.0, phase: 0.3, blades: 2 },
+        { omega: 1.8, phase: 2.2, blades: 3 },
       ],
     },
   },
@@ -27,10 +27,10 @@ export const CLASSIC_SEGMENTS: SegmentPlan[] = [
     params: {
       spacing: 42,
       units: [
-        { twin: true, omega: 0.7, phase: 0, blades: 3 },
-        { twin: false, omega: 0.9, phase: 1, blades: 4 },
-        { twin: true, omega: -0.6, phase: 2, blades: 3 },
-        { twin: false, omega: -1, phase: 0.7, blades: 2 },
+        { twin: true, omega: 2.0, phase: 0, blades: 2 },
+        { twin: false, omega: 1.6, phase: 1, blades: 3 },
+        { twin: true, omega: -2.1, phase: 2, blades: 2 },
+        { twin: false, omega: -2.2, phase: 0.7, blades: 2 },
       ],
     },
   },

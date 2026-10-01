@@ -68,6 +68,7 @@ export class Kinematic implements MovingSurface {
     readonly object: THREE.Object3D,
     readonly pose: (t: number, p: THREE.Vector3, q: THREE.Quaternion) => void,
     colliders: RAPIER.ColliderDesc[],
+    readonly cutsThrough = false,
   ) {
     pose(0, this.p0, this.q0);
     this.body = world.createRigidBody(
@@ -161,8 +162,8 @@ export class TrackBuilder {
     for (let i = 1; i < pos.length; i += 3) this.minY = Math.min(this.minY, pos[i]);
   }
 
-  /** Extrude a closed CCW polygon (in r/u coords) along frames. Returns created meshes. */
-  extrude(frames: Frame[], profile: ProfileVertex[], opts: { collider?: boolean; caps?: boolean; shadow?: boolean } = {}) {
+  /** Extrude a closed CCW polygon (in r/u coords) along frames. Returns created meshes (none if mesh: false). */
+  extrude(frames: Frame[], profile: ProfileVertex[], opts: { collider?: boolean; mesh?: boolean; caps?: boolean; shadow?: boolean } = {}) {
     const collider = opts.collider ?? true;
     const caps = opts.caps ?? true;
     const byMat = new Map<MatKey, Accum>();
@@ -234,6 +235,7 @@ export class TrackBuilder {
       }
     }
     const meshes: THREE.Mesh[] = [];
+    if (opts.mesh === false) byMat.clear();
     for (const [k, a] of byMat) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(a.pos, 3));
@@ -320,12 +322,17 @@ export class TrackBuilder {
     return mesh;
   }
 
-  addKinematic(object: THREE.Object3D, pose: (t: number, p: THREE.Vector3, q: THREE.Quaternion) => void, colliders: RAPIER.ColliderDesc[]) {
+  addKinematic(
+    object: THREE.Object3D,
+    pose: (t: number, p: THREE.Vector3, q: THREE.Quaternion) => void,
+    colliders: RAPIER.ColliderDesc[],
+    opts: { cutsThrough?: boolean } = {},
+  ) {
     object.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) o.castShadow = o.receiveShadow = true;
     });
     this.group.add(object);
-    const k = new Kinematic(this.world, object, pose, colliders);
+    const k = new Kinematic(this.world, object, pose, colliders, opts.cutsThrough);
     this.kinematics.push(k);
     return k;
   }
