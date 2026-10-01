@@ -1,0 +1,24 @@
+{
+  "name": "gta-car-parkour",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Браузерный авто-паркур (Car Parkour / Obstacle Course) в духе GTA Online",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "levels": "tsx scripts/levels.ts"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
+  }
+}

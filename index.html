@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Авто-паркур</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Russo+One&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="hud" class="hidden">
+      <div id="hud-top-left">
+        <div class="hud-chip"><span class="lbl">Уровень</span><span id="hud-level">1</span></div>
+        <div class="hud-chip"><span class="lbl">Падения</span><span id="hud-falls">0</span></div>
+        <div class="hud-chip"><span class="lbl">Рекорд</span><span id="hud-best">--:--.---</span></div>
+      </div>
+      <div id="hud-timer">00:00.000</div>
+      <div id="hud-section"></div>
+      <div id="hud-speedo">
+        <div id="hud-speed">0</div>
+        <div class="unit">км/ч</div>
+        <div id="hud-gear">1</div>
+        <div class="rpm"><div id="hud-rpm-fill"></div></div>
+      </div>
+      <div id="hud-hint">R — респаун · C — камера · Esc — пауза</div>
+    </div>
+
+    <div id="banner"></div>
+    <div id="bigmsg"></div>
+    <div id="fade"></div>
+
+    <div id="menu" class="overlay">
+      <div class="panel">
+        <div class="title">АВТО-ПАРКУР</div>
+        <div class="subtitle">Полоса препятствий над Лос-Сантосом</div>
+        <div class="level-box">
+          <div class="level-row">
+            <button id="level-prev" class="lvl-arrow" title="Предыдущий уровень">◀</button>
+            <div class="level-num">
+              <span class="lbl">Уровень</span>
+              <input id="level-input" type="number" min="1" max="999" value="1" />
+            </div>
+            <button id="level-next" class="lvl-arrow" title="Следующий уровень">▶</button>
+          </div>
+          <div class="level-meta"><span id="level-name"></span><span id="level-diff" class="diff"></span></div>
+          <div id="level-obstacles" class="level-obstacles"></div>
+        </div>
+        <div class="row">
+          <div class="lbl">Цвет машины</div>
+          <div id="colors"></div>
+        </div>
+        <div class="row">
+          <div class="lbl">Респаун после падения</div>
+          <div class="toggle" id="respawn-mode">
+            <button data-mode="start" class="active">На старте</button>
+            <button data-mode="checkpoint">На чекпоинте</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="lbl">Качество графики</div>
+          <div class="toggle" id="quality">
+            <button data-q="low">Низкое</button>
+            <button data-q="high" class="active">Высокое</button>
+          </div>
+        </div>
+        <button id="btn-play" class="big-btn">ИГРАТЬ</button>
+        <div id="menu-best"></div>
+        <div class="controls">
+          <div><b>W / ↑</b> газ</div>
+          <div><b>S / ↓</b> тормоз / задний ход</div>
+          <div><b>A D / ← →</b> руль</div>
+          <div><b>Пробел</b> ручник</div>
+          <div><b>В воздухе</b>: W/S — лёгкий наклон, A/D — крен</div>
+          <div><b>R</b> респаун · <b>C</b> камера · <b>M</b> звук</div>
+          <div><b>Мышь</b> (зажать) — обзор · <b>Esc</b> — пауза</div>
+          <div><b>Геймпад</b>: RT/LT, стик, RB — ручник</div>
+        </div>
+        <div id="loading">Загрузка физики…</div>
+      </div>
+    </div>
+
+    <div id="pause" class="overlay hidden">
+      <div class="panel small">
+        <div class="title">ПАУЗА</div>
+        <button id="btn-resume" class="big-btn">ПРОДОЛЖИТЬ</button>
+        <button id="btn-restart" class="btn">Начать заново</button>
+        <button id="btn-menu" class="btn">В меню</button>
+      </div>
+    </div>
+
+    <div id="finish" class="overlay hidden">
+      <div class="panel small">
+        <div class="title gold">ФИНИШ!</div>
+        <div id="finish-record" class="record hidden">НОВЫЙ РЕКОРД!</div>
+        <div class="stats">
+          <div><span>Время</span><b id="finish-time">00:00.000</b></div>
+          <div><span>Падения</span><b id="finish-falls">0</b></div>
+          <div><span>Рекорд</span><b id="finish-best">--</b></div>
+        </div>
+        <button id="btn-next" class="big-btn">СЛЕДУЮЩИЙ УРОВЕНЬ</button>
+        <button id="btn-again" class="btn">Ещё раз</button>
+        <button id="btn-finish-menu" class="btn">В меню</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
