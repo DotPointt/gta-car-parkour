@@ -509,7 +509,8 @@ export class Vehicle {
 
       // brakes / resistance
       let bf = (brake * BRAKE_TOTAL * (wh.front ? BRAKE_FRONT : 1 - BRAKE_FRONT)) / 2;
-      if (!wh.front && handbrake) bf += HANDBRAKE;
+      // in a drift the handbrake is for steering the slide, not for stopping: the locked rear axle slides
+      if (!wh.front && handbrake) bf += HANDBRAKE * (1 - 0.85 * this.drift);
       bf += ROLL_RES + this.engineBrake / 4;
       if (autoHold) bf += 4000;
       wh.brakeMax = bf * dt;
@@ -580,14 +581,18 @@ export class Vehicle {
       if (bIn > 0.1 || (throttle < 0.1 && !handbrake)) swing = -angle * 2.5; // relax towards straight
       // at a shallow angle with the wheel straight the tyres bite again and line the car up
       else if (sIn === 0 && !handbrake && Math.abs(angle) < 0.25) swing = -angle * 2;
-      if (Math.abs(angle) > DRIFT_MAX_ANGLE && Math.sign(swing) === Math.sign(angle)) swing = 0;
-      const pull = DRIFT_PULL * (0.35 + 0.65 * throttle) * Math.min(1, sp / 15);
+      // past the max angle the nose is pushed back (no spinning sideways)
+      if (Math.abs(angle) > DRIFT_MAX_ANGLE && Math.sign(swing) !== -Math.sign(angle))
+        swing = -(angle - Math.sign(angle) * DRIFT_MAX_ANGLE) * 4;
+      // the handbrake alone also carries the slide round the corner (a bit less than the throttle)
+      const drive = Math.max(throttle, handbrake ? 0.6 : 0);
+      const pull = DRIFT_PULL * (0.35 + 0.65 * drive) * Math.min(1, sp / 15);
       const pathRate = pull * clamp(angle, -0.8, 0.8);
       this.w.addScaledVector(up, (pathRate + swing - this.w.dot(up)) * Math.min(1, dt * 14) * k);
       // rotate the planar velocity by the path rate, keep (on throttle even gain a little) speed
       const turn = pathRate * dt * k;
       // speed: throttle keeps it, a sideways slide on the handbrake scrubs it off
-      const scrub = handbrake ? 3 + 4 * Math.min(1, Math.abs(angle)) : 0.6;
+      const scrub = handbrake ? 0.2 + 0.8 * Math.min(1, Math.abs(angle)) : 0.6;
       const keep = Math.max(0, sp + (throttle * 2.2 - scrub) * dt * k) / Math.max(sp, 1e-3);
       const c = Math.cos(turn) * keep;
       const sn = Math.sin(turn) * keep;
