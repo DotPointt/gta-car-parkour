@@ -35,8 +35,10 @@ const DOWNFORCE = 3.6;
 // W/S in the air only nudges the nose (slow and rate-limited); A/D roll stays strong
 const AIR_PITCH = 0.4;
 const AIR_PITCH_MAX_RATE = 0.3;
-const AIR_ROLL = 3.2;
-const AIR_MAX_RATE = 3.0;
+// A/D in the air turn the car (yaw around the vertical), and the car levels its roll by itself
+const AIR_YAW = 3.2;
+const AIR_YAW_MAX_RATE = 2.2;
+const AIR_LEVEL = 2.5;
 
 // arcade drift: the handbrake at speed starts it, throttle + steering hold it
 const DRIFT_MIN_SPEED = 12;
@@ -53,6 +55,7 @@ const DRIFT_PULL = 0.8;
 
 // nitro: a full tank lasts NITRO_TIME seconds of boost, drifting refills it (see Game.updateDrift)
 const NITRO_ACCEL = 11; // m/s² on top of the engine
+const NITRO_AIR_ACCEL = 30; // m/s² in flight: more than gravity (13.2), so a raised nose climbs
 const NITRO_TIME = 3;
 const NITRO_MAX_SPEED = 62; // m/s, no boost beyond
 
@@ -616,7 +619,7 @@ export class Vehicle {
     if (controls && input.nitro && this.nitro > 0 && fwdSpeed < NITRO_MAX_SPEED) {
       this.boosting = true;
       this.nitro = Math.max(0, this.nitro - dt / NITRO_TIME);
-      this.v.addScaledVector(fwd, NITRO_ACCEL * dt);
+      this.v.addScaledVector(fwd, (grounded >= 2 ? NITRO_ACCEL : NITRO_AIR_ACCEL) * dt);
     }
 
     // ---- aerodynamics
@@ -624,14 +627,20 @@ export class Vehicle {
     if (sp > 0.1) this.v.addScaledVector(this.v, (-DRAG * sp * dt) / CAR.mass);
     if (grounded > 0) this.v.addScaledVector(up, (-DOWNFORCE * fwdSpeed * fwdSpeed * dt) / CAR.mass);
 
-    // ---- air control (GTA style: pitch with throttle/brake, roll with steering)
+    // ---- air control: W/S gently pitch the nose, A/D turn the car around the vertical (no barrel rolls);
+    // the roll levels out by itself so the car comes down on its wheels
     if (this.airTime > 0.12 && controls) {
       const pitchIn = controls ? input.pitch : 0;
-      const rollIn = sIn;
       const pr = this.w.dot(left);
       if (Math.abs(pr) < AIR_PITCH_MAX_RATE || Math.sign(pr) !== Math.sign(pitchIn)) this.w.addScaledVector(left, pitchIn * AIR_PITCH * dt);
-      const rr = this.w.dot(fwd);
-      if (Math.abs(rr) < AIR_MAX_RATE || Math.sign(rr) !== Math.sign(rollIn)) this.w.addScaledVector(fwd, rollIn * AIR_ROLL * dt);
+      const yawIn = -sIn; // steering left turns the nose left
+      const yr = this.w.y;
+      if (Math.abs(yr) < AIR_YAW_MAX_RATE || Math.sign(yr) !== Math.sign(yawIn)) this.w.y += yawIn * AIR_YAW * dt;
+      if (yawIn === 0) this.w.y *= 1 - Math.min(1, dt * 2); // let go = stop turning
+      // level the roll: rotate around the nose so that the car's left axis is horizontal again
+      const rollRate = this.w.dot(fwd);
+      const rollErr = Math.asin(clamp(left.y, -1, 1)); // > 0: left side up
+      this.w.addScaledVector(fwd, (-rollErr * AIR_LEVEL - rollRate) * Math.min(1, dt * 4));
     }
 
     this.body.setLinvel(this.v, true);
