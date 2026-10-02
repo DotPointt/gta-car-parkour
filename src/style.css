@@ -300,3 +300,19 @@ html, body {
   from { text-shadow: 0 3px 0 #000, 0 0 14px #5ac8ff, 0 -8px 26px #1e6bff, 0 -16px 40px #1e6bff; }
   to { text-shadow: 0 3px 0 #000, 0 0 22px #9fe2ff, 0 -14px 36px #2f7dff, 0 -24px 54px #2f50ff; }
 }
+
+/* ---------------- Nitro ---------------- */
+.nitro { margin-top: 10px; text-align: left; }
+.nitro-lbl { display: flex; justify-content: space-between; font-family: var(--font-title); font-size: 13px; letter-spacing: 3px; color: #7fd4ff; }
+.nitro-bar { height: 10px; background: rgba(255,255,255,.1); margin-top: 3px; overflow: hidden; position: relative; }
+#nitro-fill {
+  height: 100%; width: 100%;
+  background: linear-gradient(90deg, #1e6bff, #3fb4ff 60%, #e8fbff);
+  box-shadow: 0 0 10px #3fb4ff;
+}
+.nitro.boost .nitro-bar { box-shadow: 0 0 14px #3fb4ff, 0 0 26px #1e6bff; }
+.nitro.boost #nitro-fill { animation: nitroPulse .12s infinite alternate; }
+@keyframes nitroPulse { from { filter: brightness(1); } to { filter: brightness(1.6); } }
+.nitro.refill .nitro-lbl { animation: nitroRefill .5s infinite alternate; }
+@keyframes nitroRefill { from { color: #7fd4ff; } to { color: #fff; text-shadow: 0 0 8px #3fb4ff; } }
+.nitro.empty .nitro-lbl { color: var(--muted); }

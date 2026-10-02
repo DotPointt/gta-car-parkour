@@ -40,6 +40,9 @@ export class Hud {
   private driftTier = $('drift-tier');
   private driftBank = $('drift-bank');
   private shownTier = 0;
+  private nitro = $('nitro');
+  private nitroFill = $('nitro-fill');
+  private nitroPct = $('nitro-pct');
 
   constructor() {
     // flame tongues behind the drift counter (CSS animates them)
@@ -147,6 +150,14 @@ export class Hud {
     void el.offsetWidth;
     el.classList.add('go');
     this.timer.classList.add('bonus');
+  }
+
+  setNitro(level: number, boosting: boolean, refilling: boolean) {
+    this.nitroFill.style.width = `${(level * 100).toFixed(1)}%`;
+    this.nitroPct.textContent = `${Math.round(level * 100)}%`;
+    this.nitro.classList.toggle('boost', boosting);
+    this.nitro.classList.toggle('refill', refilling && level < 1);
+    this.nitro.classList.toggle('empty', level <= 0.001);
   }
 
   setFade(on: boolean) {

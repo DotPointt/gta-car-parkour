@@ -74,6 +74,7 @@ export function installDevtools(game: Game) {
     d.throttle = c.fwdSpeed < bot.speed ? 1 : 0;
     d.brake = c.fwdSpeed > bot.speed + 3 ? 1 : 0;
     d.handbrake = false;
+    d.nitro = false;
     d.pitch = 0;
   };
 

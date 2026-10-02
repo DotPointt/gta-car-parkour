@@ -51,6 +51,11 @@ const DRIFT_MAX_ANGLE = 1.0;
 /** How hard the path bends towards the nose (rad/s per rad of slide angle, full throttle): low = momentum. */
 const DRIFT_PULL = 0.8;
 
+// nitro: a full tank lasts NITRO_TIME seconds of boost, drifting refills it (see Game.updateDrift)
+const NITRO_ACCEL = 11; // m/s² on top of the engine
+const NITRO_TIME = 3;
+const NITRO_MAX_SPEED = 62; // m/s, no boost beyond
+
 const INERTIA = new THREE.Vector3(3000, 3400, 800); // pitch, yaw, roll
 /** A blade that cut through the car stays a ghost this many steps after the last contact. */
 const GHOST_STEPS = 8;
@@ -157,6 +162,9 @@ export class Vehicle {
   scrapePoint = new THREE.Vector3();
   /** Speed at which a moving obstacle is currently pressing into the car (0 = none). */
   crushing = 0;
+  /** Nitro tank 0..1 and whether the boost fired this step. */
+  nitro = 1;
+  boosting = false;
   /** 0..1, how much the car is in an (assisted) drift. */
   drift = 0;
   /** Is a drift running (started by the handbrake, ends when the car settles). */
@@ -290,6 +298,7 @@ export class Vehicle {
     }
     this.damage.reset();
     this.ghosts.clear();
+    this.boosting = false;
     this.drifting = false;
     this.drift = 0;
     this.model.root.position.copy(pos);
@@ -600,6 +609,14 @@ export class Vehicle {
         .addScaledVector(left, nl)
         .addScaledVector(up, vUp)
         .add(_c.copy(g).addScaledVector(up, -g.dot(up)));
+    }
+
+    // ---- nitro: a push along the nose while on the ground, drains the tank
+    this.boosting = false;
+    if (controls && input.nitro && this.nitro > 0 && grounded >= 2 && this.gear > 0 && fwdSpeed < NITRO_MAX_SPEED) {
+      this.boosting = true;
+      this.nitro = Math.max(0, this.nitro - dt / NITRO_TIME);
+      this.v.addScaledVector(fwd, NITRO_ACCEL * dt);
     }
 
     // ---- aerodynamics

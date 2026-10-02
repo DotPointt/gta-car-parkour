@@ -3,6 +3,8 @@ export interface DriveInput {
   brake: number; // 0..1
   steer: number; // -1 (left) .. 1 (right)
   handbrake: boolean;
+  /** Nitro boost held (Shift, gamepad LB). */
+  nitro: boolean;
   /** Air control pitch: +1 nose down, -1 nose up (W/S, left stick Y). Very weak by design. */
   pitch: number;
 }
@@ -14,7 +16,7 @@ export class Input {
   private keys = new Set<string>();
   private pressed = new Set<string>();
   private padPrev: boolean[] = [];
-  readonly drive: DriveInput = { throttle: 0, brake: 0, steer: 0, handbrake: false, pitch: 0 };
+  readonly drive: DriveInput = { throttle: 0, brake: 0, steer: 0, handbrake: false, pitch: 0, nitro: false };
 
   // mouse orbit
   mouseDown = false;
@@ -77,6 +79,7 @@ export class Input {
     let brake = this.key('KeyS', 'ArrowDown') ? 1 : 0;
     let steer = (this.key('KeyD', 'ArrowRight') ? 1 : 0) - (this.key('KeyA', 'ArrowLeft') ? 1 : 0);
     let handbrake = this.key('Space');
+    let nitro = this.key('ShiftLeft', 'ShiftRight');
     let stickPitch: number | null = null;
     this.padHorn = false;
 
@@ -93,6 +96,7 @@ export class Input {
       const ay = gp.axes[1] ?? 0;
       if (Math.abs(ay) > 0.2) stickPitch = -ay;
       if (gp.buttons[5]?.pressed || gp.buttons[1]?.pressed) handbrake = true;
+      if (gp.buttons[4]?.pressed) nitro = true;
       if (gp.buttons[10]?.pressed) this.padHorn = true;
       gp.buttons.forEach((b, i) => {
         if (b.pressed && !this.padPrev[i]) this.pressed.add('pad' + i);
@@ -105,6 +109,7 @@ export class Input {
     this.drive.brake = brake;
     this.drive.steer = Math.max(-1, Math.min(1, steer));
     this.drive.handbrake = handbrake;
+    this.drive.nitro = nitro;
     // in the air, gas/brake (W/S, triggers) gently tilt the nose, unless the stick is used
     this.drive.pitch = Math.max(-1, Math.min(1, stickPitch ?? throttle - brake));
   }

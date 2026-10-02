@@ -121,8 +121,11 @@ export class ChaseCamera {
     this.setFov(dt, speed, 60);
   }
 
+  /** 0..1 nitro kick: widens the view a little more. */
+  boost = 0;
+
   private setFov(dt: number, speed: number, base: number) {
-    const target = base + Math.min(22, speed * 0.28);
+    const target = base + Math.min(22, speed * 0.28) + 9 * this.boost;
     this.camera.fov += (target - this.camera.fov) * (1 - Math.exp(-dt * 3));
     this.camera.updateProjectionMatrix();
   }

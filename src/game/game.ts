@@ -15,6 +15,10 @@ import { Hud, formatTime } from './hud';
 const DRIFT_COOLDOWN = 0.5;
 /** Shorter slides are not worth a combo. */
 const DRIFT_MIN_COMBO = 0.3;
+/** Nitro tank refilled per second of drifting (a ~7 s drift refills it completely). */
+const NITRO_REFILL = 0.15;
+const NITRO_FLAME = new THREE.Color(0.45, 0.75, 1.0);
+const NITRO_CORE = new THREE.Color(1.0, 0.75, 0.35);
 import { Particles } from '../fx/particles';
 import { Debris } from '../fx/debris';
 import { setMaxAnisotropy, softDotTexture } from '../gfx/textures';
@@ -54,6 +58,7 @@ function loadSettings(): Settings {
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
+const _nitroJitter = new THREE.Vector3();
 const GREY = new THREE.Color(0.82, 0.82, 0.84);
 const DARK_SMOKE = new THREE.Color(0.18, 0.18, 0.19);
 const SPARK = new THREE.Color(1.0, 0.62, 0.2);
@@ -94,6 +99,7 @@ export class Game {
   private menuTime = 0;
   private finishConfetti = 0;
   private lowFpsFrames = 0;
+  private wasBoosting = false;
   /** Current drift combo (s), time since the car last slid, and the total cashed in this race. */
   private driftCombo = 0;
   private driftIdle = 0;
@@ -359,6 +365,8 @@ export class Game {
     this.driftIdle = 0;
     this.driftBonus = 0;
     this.hud.setDrift(0, false);
+    this.car.nitro = 1;
+    this.hud.setNitro(1, false, false);
     this.sectionIdx = 0;
     this.checkpoint = null;
     this.hud.setFalls(0);
@@ -612,10 +620,12 @@ export class Game {
     if (sliding) {
       this.driftCombo += dt;
       this.driftIdle = 0;
+      c.nitro = Math.min(1, c.nitro + NITRO_REFILL * dt);
     } else if (this.driftCombo > 0) {
       this.driftIdle += dt;
       if (this.driftIdle > DRIFT_COOLDOWN) this.bankDrift();
     }
+    this.hud.setNitro(c.nitro, c.boosting, sliding);
     const tier = this.hud.setDrift(this.driftCombo, sliding);
     if (tier) this.audio.chime(tier);
   }
@@ -700,6 +710,22 @@ export class Game {
 
   private emitEffects(dt: number) {
     const car = this.car;
+    // nitro: blue flames out of both exhausts, wider view, whoosh on ignition
+    this.cam.boost += ((car.boosting ? 1 : 0) - this.cam.boost) * Math.min(1, dt * 6);
+    if (car.boosting) {
+      if (!this.wasBoosting) {
+        this.audio.whoosh();
+        this.cam.addShake(0.2);
+      }
+      for (const side of [1, -1]) {
+        car.toWorld(_v.set(0.42 * side, -0.28, -2.3), _v);
+        for (let i = 0; i < 3; i++) {
+          _v2.copy(car.fwd).multiplyScalar(-(8 + Math.random() * 6)).add(car.v).addScaledVector(_nitroJitter.set(Math.random() - 0.5, Math.random() - 0.3, Math.random() - 0.5), 1.5);
+          this.sparks.emit(_v, _v2, { life: 0.12 + Math.random() * 0.12, size0: 0.32, size1: 0.05, color: i === 0 ? NITRO_CORE : NITRO_FLAME, alpha: 1, gravity: 0, drag: 2 });
+        }
+      }
+    }
+    this.wasBoosting = car.boosting;
     // tyre smoke
     for (const w of car.wheels) {
       if (!w.grounded || w.slip < 4.5) continue;
