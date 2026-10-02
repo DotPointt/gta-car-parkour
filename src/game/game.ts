@@ -21,18 +21,25 @@ export const CAR_COLORS = ['#c8102e', '#ff7a00', '#f5c400', '#1faa4b', '#1f5fd6'
 
 const BEST_KEY = 'car-parkour-best';
 const bestKey = (level: number) => `${BEST_KEY}-${level}`;
-const MAX_LEVEL = 999;
 const SETTINGS_KEY = 'car-parkour-settings';
+const COMPLETED_KEY = 'car-parkour-completed';
+
+/** Play modes: clicking one starts a random level from its (small) pool. */
+type Mode = 'casual' | 'challenge';
+const MODE_LEVELS: Record<Mode, [number, number]> = { casual: [1, 12], challenge: [13, 30] };
+/** Colours open from the start; every newly completed level unlocks the next one. */
+const START_COLORS = 3;
 
 interface Settings {
   color: string;
   respawn: RespawnMode;
   quality: 'low' | 'high';
   level: number;
+  mode: Mode;
 }
 
 function loadSettings(): Settings {
-  const def: Settings = { color: CAR_COLORS[0], respawn: 'start', quality: 'high', level: 1 };
+  const def: Settings = { color: CAR_COLORS[0], respawn: 'start', quality: 'high', level: 1, mode: 'casual' };
   try {
     return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
   } catch {
@@ -82,6 +89,8 @@ export class Game {
   private menuTime = 0;
   private finishConfetti = 0;
   private lowFpsFrames = 0;
+  /** Levels finished at least once (unlock car colours). */
+  private completed = new Set<number>();
 
   constructor(canvas: HTMLCanvasElement, world: RAPIER.World) {
     this.world = world;
@@ -139,6 +148,9 @@ export class Game {
       /* ignore */
     }
 
+    this.loadCompleted();
+    if (CAR_COLORS.indexOf(this.settings.color) >= this.unlockedColors()) this.settings.color = CAR_COLORS[0];
+    this.car.model.setColor(this.settings.color);
     this.loadLevel(this.settings.level);
     this.setupUI();
     window.addEventListener('resize', () => this.onResize());
@@ -147,21 +159,7 @@ export class Game {
 
   // ------------------------------------------------------------------------------ UI / flow
   private setupUI() {
-    const colors = document.getElementById('colors')!;
-    for (const c of CAR_COLORS) {
-      const b = document.createElement('button');
-      b.className = 'swatch' + (c === this.settings.color ? ' active' : '');
-      b.style.background = c;
-      b.title = c;
-      b.onclick = () => {
-        colors.querySelectorAll('.swatch').forEach((s) => s.classList.remove('active'));
-        b.classList.add('active');
-        this.settings.color = c;
-        this.car.model.setColor(c);
-        this.saveSettings();
-      };
-      colors.appendChild(b);
-    }
+    this.renderColors();
     const toggle = (id: string, attr: string, get: () => string, set: (v: string) => void) => {
       const el = document.getElementById(id)!;
       el.querySelectorAll('button').forEach((btn) => {
@@ -182,6 +180,14 @@ export class Game {
 
     const play = document.getElementById('btn-play') as HTMLButtonElement;
     play.disabled = false;
+    document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((btn) => {
+      btn.disabled = false;
+      btn.onclick = () => {
+        this.settings.mode = btn.dataset.mode as Mode;
+        this.loadLevel(this.randomLevel(this.settings.mode));
+        this.startRace();
+      };
+    });
     document.getElementById('loading')!.classList.add('hidden');
     play.onclick = () => this.startRace();
     document.getElementById('btn-resume')!.onclick = () => this.setPaused(false);
@@ -196,18 +202,61 @@ export class Game {
     document.getElementById('btn-again')!.onclick = () => this.startRace();
     document.getElementById('btn-finish-menu')!.onclick = () => this.toMenu();
     document.getElementById('btn-next')!.onclick = () => {
-      this.loadLevel(this.course.plan.index + 1);
+      this.loadLevel(this.randomLevel(this.settings.mode));
       this.startRace();
     };
-    const input = document.getElementById('level-input') as HTMLInputElement;
-    const go = (n: number) => {
-      if (!Number.isFinite(n)) return;
-      this.loadLevel(Math.max(1, Math.min(MAX_LEVEL, Math.round(n))));
-    };
-    document.getElementById('level-prev')!.onclick = () => go(this.course.plan.index - 1);
-    document.getElementById('level-next')!.onclick = () => go(this.course.plan.index + 1);
-    input.onchange = () => go(Number(input.value));
     this.updateMenuBest();
+  }
+
+  /** Random level of the mode's pool, never the one just played. */
+  private randomLevel(mode: Mode) {
+    const [lo, hi] = MODE_LEVELS[mode];
+    const current = this.course?.plan.index;
+    let n = current;
+    while (n === current) n = lo + Math.floor(Math.random() * (hi - lo + 1));
+    return n!;
+  }
+
+  // ---- car colours: START_COLORS open, one more per newly completed level ---------------------
+  private loadCompleted() {
+    try {
+      for (const n of JSON.parse(localStorage.getItem(COMPLETED_KEY) || '[]')) this.completed.add(Number(n));
+      // levels finished before colours were unlockable have a best time
+      for (let i = 0; i < localStorage.length; i++) {
+        const m = /^car-parkour-best-(\d+)$/.exec(localStorage.key(i) ?? '');
+        if (m) this.completed.add(Number(m[1]));
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private unlockedColors() {
+    return Math.min(CAR_COLORS.length, START_COLORS + this.completed.size);
+  }
+
+  private renderColors() {
+    const colors = document.getElementById('colors')!;
+    colors.textContent = '';
+    const open = this.unlockedColors();
+    CAR_COLORS.forEach((c, i) => {
+      const b = document.createElement('button');
+      const locked = i >= open;
+      b.className = 'swatch' + (c === this.settings.color ? ' active' : '') + (locked ? ' locked' : '');
+      b.style.background = c;
+      b.title = locked ? 'Откроется после прохождения новой трассы' : c;
+      b.disabled = locked;
+      b.onclick = () => {
+        colors.querySelectorAll('.swatch').forEach((s) => s.classList.remove('active'));
+        b.classList.add('active');
+        this.settings.color = c;
+        this.car.model.setColor(c);
+        this.saveSettings();
+      };
+      colors.appendChild(b);
+    });
+    const left = CAR_COLORS.length - open;
+    document.getElementById('colors-info')!.textContent = left ? `ещё ${left} — за новые пройденные трассы` : 'все открыты';
   }
 
   /** Build level N (generated on demand, deterministic) and put the car on its start. */
@@ -240,7 +289,7 @@ export class Game {
   private updateMenuBest() {
     const plan = this.course?.plan;
     if (!plan) return;
-    (document.getElementById('level-input') as HTMLInputElement).value = String(plan.index);
+    document.getElementById('level-num')!.textContent = String(plan.index);
     document.getElementById('level-name')!.textContent = plan.name;
     const diff = document.getElementById('level-diff')!;
     diff.textContent = difficultyLabel(plan.difficulty);
@@ -342,6 +391,17 @@ export class Game {
       }
       this.hud.setBest(t);
     }
+    const before = this.unlockedColors();
+    if (!this.completed.has(this.course.plan.index)) {
+      this.completed.add(this.course.plan.index);
+      try {
+        localStorage.setItem(COMPLETED_KEY, JSON.stringify([...this.completed]));
+      } catch {
+        /* ignore */
+      }
+      this.renderColors();
+    }
+    const unlocked = this.unlockedColors() > before;
     this.audio.fanfare();
     this.hud.bigMessage('ФИНИШ!', 'gold');
     this.finishConfetti = 2.5;
@@ -351,6 +411,7 @@ export class Game {
       document.getElementById('finish-falls')!.textContent = String(this.falls);
       document.getElementById('finish-best')!.textContent = formatTime(this.best);
       this.show('finish-record', record);
+      this.show('finish-unlock', unlocked);
       this.show('finish', true);
     }, 1600);
   }
@@ -437,7 +498,7 @@ export class Game {
       const bp = this.course.boosts[i];
       if (bp.trigger.contains(car.currPos)) {
         const vAlong = car.v.dot(bp.dir);
-        if (bp.mode === 'exact' ? Math.abs(vAlong - bp.speed) > 0.05 : vAlong < bp.speed) {
+        if (vAlong < bp.speed) {
           _v.copy(car.v).addScaledVector(bp.dir, (bp.speed - vAlong) * Math.min(1, dt * 12));
           car.body.setLinvel(_v, true);
           car.v.copy(_v);

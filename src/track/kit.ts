@@ -22,8 +22,7 @@ export interface BoostPad {
   trigger: BoxTrigger;
   dir: THREE.Vector3;
   speed: number;
-  /** up = speed boost only; exact = sets the speed both ways (jumps and loops need a precise entry speed) */
-  mode: 'up' | 'exact';
+  /** Green pads only ever speed the car up (never brake it). */
   mat: THREE.MeshStandardMaterial;
 }
 
@@ -131,7 +130,7 @@ export class Kit {
   }
 
   /** Green speed pad on the road, z..z+len ahead of the cursor. */
-  boostPad(c: Cursor, z: number, len: number, w: number, speed: number, mode: 'up' | 'exact' = 'up') {
+  boostPad(c: Cursor, z: number, len: number, w: number, speed: number) {
     const mat = this.b.own(this.mats.boost.clone());
     mat.map = this.mats.boost.map!.clone();
     mat.map.needsUpdate = true;
@@ -149,17 +148,16 @@ export class Kit {
       trigger: new BoxTrigger(local(c, 0, 1.5, z + len / 2), new THREE.Vector3(w / 2 + 0.5, 2.5, len / 2), c.yaw),
       dir: dirOf(c.yaw),
       speed,
-      mode,
       mat,
     });
   }
 
   /**
-   * Green pad on a jump/loop approach that sets the entry speed exactly (speeds the car up or reins it
-   * in), so the jump math holds whatever came before. There are no red limiter pads in the game.
+   * Green pad on a jump/loop approach: brings a slow car up to `speed`, a faster car keeps its speed
+   * (jump landings are sized for that, see jumpMath). There are no red limiter pads in the game.
    */
   speedGate(c: Cursor, speed: number, w = ROAD_W) {
-    this.boostPad(c, 26, 14, w - 6, speed, 'exact');
+    this.boostPad(c, 26, 14, w - 6, speed);
   }
 
   // ---- decor ---------------------------------------------------------------------------------

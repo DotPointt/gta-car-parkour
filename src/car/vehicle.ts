@@ -38,6 +38,11 @@ const AIR_PITCH_MAX_RATE = 0.3;
 const AIR_ROLL = 3.2;
 const AIR_MAX_RATE = 3.0;
 
+// arcade drift: handbrake (or a big slide) at speed starts it, throttle + steering hold it
+const DRIFT_MIN_SPEED = 9;
+const DRIFT_RADIUS = 13; // m: tightest drift arc (yaw rate = speed / radius at full lock)
+const DRIFT_SLIP = 0.55; // rad (~30°): slide angle held with full throttle, less without it
+
 const INERTIA = new THREE.Vector3(3000, 3400, 800); // pitch, yaw, roll
 /** A blade that cut through the car stays a ghost this many steps after the last contact. */
 const GHOST_STEPS = 8;
@@ -144,6 +149,12 @@ export class Vehicle {
   scrapePoint = new THREE.Vector3();
   /** Speed at which a moving obstacle is currently pressing into the car (0 = none). */
   crushing = 0;
+  /** 0..1, how much the car is in an (assisted) drift. */
+  drift = 0;
+  /** Body slip angle (rad, + = sliding to the left of the nose). */
+  slip = 0;
+  /** Average velocity of the surface under the wheels (moving platforms, carousel). */
+  private groundV = new THREE.Vector3();
   /**
    * Kinematic bodies that currently cut through the car instead of pushing it: body handle -> steps
    * left. Pass `hooks` to world.step() so the solver skips their impulses (contacts are still reported).
@@ -325,8 +336,9 @@ export class Vehicle {
     const sIn = controls ? input.steer : 0;
     const handbrake = controls ? input.handbrake : false;
 
-    // ---- gear selection (automatic with reverse on brake at standstill)
-    if (this.gear > 0 && bIn > 0.1 && tIn < 0.1 && fwdSpeed < 0.7) {
+    // ---- gear selection (automatic with reverse on brake at standstill). "Back" only reverses once
+    // the car has (almost) stopped: while it is still moving - a drift included - it is the brake.
+    if (this.gear > 0 && bIn > 0.1 && tIn < 0.1 && fwdSpeed < 0.7 && this.speed < 1.5) {
       this.reverseTimer += dt;
       if (this.reverseTimer > 0.25) {
         this.gear = -1;
@@ -340,9 +352,24 @@ export class Vehicle {
     const brake = this.gear === -1 ? tIn : bIn;
     this.throttleOut = throttle;
 
-    // ---- steering (speed sensitive, rate limited) + Ackermann
-    const maxSteer = 0.58 / (1 + Math.abs(fwdSpeed) / 13);
-    this.steerAngle = moveTowards(this.steerAngle, -sIn * maxSteer, 2.8 * dt);
+    // ---- drift state
+    // relative to the surface: riding a carousel or a moving platform is not a slide
+    const vFwd = this.v.dot(fwd) - this.groundV.dot(fwd);
+    const vLeft = this.v.dot(left) - this.groundV.dot(left);
+    const planar = Math.hypot(vFwd, vLeft);
+    this.slip = planar > 2 ? Math.atan2(vLeft, Math.max(Math.abs(vFwd), 0.1)) : 0;
+    const onGround = this.groundedCount >= 3;
+    const wantDrift =
+      onGround &&
+      this.gear > 0 &&
+      bIn < 0.1 && // braking straightens the car out
+      planar > DRIFT_MIN_SPEED &&
+      (handbrake || (this.drift > 0.2 ? Math.abs(this.slip) > 0.06 : Math.abs(this.slip) > 0.2));
+    this.drift = moveTowards(this.drift, wantDrift ? 1 : 0, (wantDrift ? 4 : 2.5) * dt);
+
+    // ---- steering (speed sensitive, rate limited) + Ackermann; drifting allows a full counter-steer
+    const maxSteer = Math.max(0.58 / (1 + Math.abs(fwdSpeed) / 13), 0.45 * this.drift);
+    this.steerAngle = moveTowards(this.steerAngle, -sIn * maxSteer, (2.8 + 2 * this.drift) * dt);
     const sa = this.steerAngle;
     let steerL = sa;
     let steerR = sa;
@@ -386,6 +413,8 @@ export class Vehicle {
       }
     }
     this.groundedCount = grounded;
+    this.groundV.set(0, 0, 0);
+    for (const wh of this.wheels) if (wh.grounded) this.groundV.addScaledVector(wh.groundVel, 1 / grounded);
     if (grounded > 0) {
       this.airTime = 0;
       this.lastGroundY = this.pos.y;
@@ -438,6 +467,8 @@ export class Vehicle {
       const alpha = Math.atan2(Math.abs(vy), Math.max(Math.abs(vx), 1.5));
       let lat = Math.max(pacejka(alpha), 1 - smoothstep(2, 6, Math.abs(vx)));
       if (!wh.front && handbrake) lat *= 0.42;
+      // drifting: the rear steps out easily, the assist below keeps the slide under control
+      lat *= 1 - (wh.front ? 0.35 : 0.6) * this.drift;
       wh.latFactor = lat;
 
       // drive
@@ -506,6 +537,33 @@ export class Vehicle {
         wh.slip = 0;
       }
       wh.spinAngle = (wh.spinAngle + wh.spinVel * dt) % (Math.PI * 2);
+    }
+
+    // ---- arcade drift assist: steering sets the yaw rate, the slide angle settles at ~30° on throttle
+    // (straightens without it), the velocity follows the nose instead of scrubbing speed
+    if (this.drift > 0.01 && onGround) {
+      const k = this.drift;
+      const g = this.groundV;
+      const vf = this.v.dot(fwd) - g.dot(fwd);
+      const vl = this.v.dot(left) - g.dot(left);
+      const vUp = this.v.dot(up);
+      const sp = Math.hypot(vf, vl);
+      const slip = Math.atan2(vl, Math.max(Math.abs(vf), 0.1));
+      const yaw = this.w.dot(up);
+      const target = -sIn * Math.min(2.2, sp / DRIFT_RADIUS) + (sIn === 0 ? slip * 1.5 : 0);
+      this.w.addScaledVector(up, (target - yaw) * Math.min(1, dt * 6) * k);
+      const wantSlip = sIn === 0 ? 0 : DRIFT_SLIP * (0.35 + 0.65 * throttle);
+      // turn the planar velocity with the car (|yaw| keeps the angle) plus a pull towards wantSlip
+      const rate = Math.max(0, Math.abs(yaw) + 3 * (Math.abs(slip) - wantSlip)) * dt * k;
+      const a = clamp(slip, -rate, rate);
+      // on throttle the slide does not scrub speed away (arcade), off throttle it slowly bleeds
+      const keep = sp + (throttle * 2 - 1) * dt * k;
+      this.v
+        .copy(fwd)
+        .multiplyScalar(Math.cos(slip - a) * keep * Math.sign(vf || 1))
+        .addScaledVector(left, Math.sin(slip - a) * keep)
+        .addScaledVector(up, vUp)
+        .add(_c.copy(g).addScaledVector(up, -g.dot(up)));
     }
 
     // ---- aerodynamics

@@ -39,20 +39,21 @@
       <div class="panel">
         <div class="title">АВТО-ПАРКУР</div>
         <div class="subtitle">Полоса препятствий над Лос-Сантосом</div>
+        <div class="modes">
+          <button class="mode-btn" data-mode="casual" disabled>
+            <span class="mode-name">CASUAL</span><span class="mode-sub">лёгкие и средние трассы</span>
+          </button>
+          <button class="mode-btn challenge" data-mode="challenge" disabled>
+            <span class="mode-name">CHALLENGE</span><span class="mode-sub">сложные и экстрим</span>
+          </button>
+        </div>
+        <div class="mode-hint">Нажмите на режим — случайная трасса</div>
         <div class="level-box">
-          <div class="level-row">
-            <button id="level-prev" class="lvl-arrow" title="Предыдущий уровень">◀</button>
-            <div class="level-num">
-              <span class="lbl">Уровень</span>
-              <input id="level-input" type="number" min="1" max="999" value="1" />
-            </div>
-            <button id="level-next" class="lvl-arrow" title="Следующий уровень">▶</button>
-          </div>
-          <div class="level-meta"><span id="level-name"></span><span id="level-diff" class="diff"></span></div>
+          <div class="level-meta"><span class="lbl">Уровень <b id="level-num">1</b></span><span id="level-name"></span><span id="level-diff" class="diff"></span></div>
           <div id="level-obstacles" class="level-obstacles"></div>
         </div>
         <div class="row">
-          <div class="lbl">Цвет машины</div>
+          <div class="lbl">Цвет машины <span id="colors-info" class="colors-info"></span></div>
           <div id="colors"></div>
         </div>
         <div class="row">
@@ -75,7 +76,7 @@
           <div><b>W / ↑</b> газ</div>
           <div><b>S / ↓</b> тормоз / задний ход</div>
           <div><b>A D / ← →</b> руль</div>
-          <div><b>Пробел</b> ручник</div>
+          <div><b>Пробел</b> ручник / дрифт</div>
           <div><b>В воздухе</b>: W/S — лёгкий наклон, A/D — крен</div>
           <div><b>R</b> респаун · <b>C</b> камера · <b>M</b> звук</div>
           <div><b>Мышь</b> (зажать) — обзор · <b>Esc</b> — пауза</div>
@@ -98,12 +99,13 @@
       <div class="panel small">
         <div class="title gold">ФИНИШ!</div>
         <div id="finish-record" class="record hidden">НОВЫЙ РЕКОРД!</div>
+        <div id="finish-unlock" class="unlock hidden">НОВЫЙ ЦВЕТ МАШИНЫ ОТКРЫТ!</div>
         <div class="stats">
           <div><span>Время</span><b id="finish-time">00:00.000</b></div>
           <div><span>Падения</span><b id="finish-falls">0</b></div>
           <div><span>Рекорд</span><b id="finish-best">--</b></div>
         </div>
-        <button id="btn-next" class="big-btn">СЛЕДУЮЩИЙ УРОВЕНЬ</button>
+        <button id="btn-next" class="big-btn">СЛЕДУЮЩАЯ ТРАССА</button>
         <button id="btn-again" class="btn">Ещё раз</button>
         <button id="btn-finish-menu" class="btn">В меню</button>
       </div>

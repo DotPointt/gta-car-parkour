@@ -198,25 +198,30 @@ html, body {
   #banner { font-size: 28px; }
 }
 
-/* ---------------- Level selector ---------------- */
-.level-box { background: rgba(255,255,255,.05); padding: 12px 14px; margin-bottom: 8px; border-left: 4px solid var(--accent2); }
-.level-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
-.lvl-arrow {
-  width: 42px; height: 42px; border: none; cursor: pointer; font-size: 18px;
-  background: rgba(255,255,255,.1); color: #fff;
+/* ---------------- Modes + current level ---------------- */
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mode-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 8px; cursor: pointer;
+  border: none; background: var(--accent); color: #111; transition: transform .08s, filter .15s;
 }
-.lvl-arrow:hover { background: var(--accent); color: #111; }
-.level-num { display: flex; flex-direction: column; align-items: center; }
-.level-num .lbl { color: var(--muted); text-transform: uppercase; letter-spacing: 2px; font-size: 12px; }
-#level-input {
-  width: 110px; text-align: center; background: transparent; border: none; color: #fff;
-  font-family: var(--font-title); font-size: 38px; line-height: 1; outline: none;
-  -moz-appearance: textfield; appearance: textfield;
-}
-#level-input::-webkit-outer-spin-button, #level-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.level-meta { display: flex; justify-content: center; gap: 12px; align-items: center; margin-top: 6px; font-size: 18px; letter-spacing: 1px; }
+.mode-btn.challenge { background: var(--danger); color: #fff; }
+.mode-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+.mode-btn:disabled { filter: grayscale(1) brightness(.6); cursor: wait; }
+.mode-name { font-family: var(--font-title); font-size: 26px; letter-spacing: 3px; }
+.mode-sub { font-family: var(--font-ui); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; opacity: .85; }
+.mode-hint { text-align: center; color: var(--muted); font-size: 13px; letter-spacing: 1px; margin: 8px 0 12px; }
+.level-box { background: rgba(255,255,255,.05); padding: 10px 14px; margin-bottom: 8px; border-left: 4px solid var(--accent2); }
+.level-meta { display: flex; justify-content: center; gap: 12px; align-items: center; font-size: 18px; letter-spacing: 1px; flex-wrap: wrap; }
+.level-meta .lbl { color: var(--muted); text-transform: uppercase; letter-spacing: 2px; font-size: 13px; }
+.level-meta .lbl b { color: #fff; font-family: var(--font-title); font-weight: normal; font-size: 18px; }
 .diff { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; padding: 2px 8px; background: var(--ok); color: #111; }
 .diff[data-level="1"] { background: var(--accent); }
 .diff[data-level="2"] { background: #ff7a00; }
 .diff[data-level="3"] { background: var(--danger); color: #fff; }
 .level-obstacles { text-align: center; color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.5; }
+
+/* ---------------- Car colours ---------------- */
+.swatch.locked { cursor: not-allowed; position: relative; filter: grayscale(.7) brightness(.45); }
+.swatch.locked::after { content: '🔒'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; filter: none; }
+.colors-info { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--muted); display: block; }
+.unlock { color: var(--accent); font-family: var(--font-title); letter-spacing: 2px; margin-top: 8px; font-size: 18px; }
