@@ -39,7 +39,11 @@ const AIR_ROLL = 3.2;
 const AIR_MAX_RATE = 3.0;
 
 // arcade drift: the handbrake at speed starts it, throttle + steering hold it
-const DRIFT_MIN_SPEED = 9;
+const DRIFT_MIN_SPEED = 12;
+/** Below this speed a drift is over (the car has settled). */
+const DRIFT_EXIT_SPEED = 8;
+/** A drift ends after the car has run straight (small angle, no fast rotation) this long. */
+const DRIFT_SETTLE_TIME = 0.3;
 /** How fast the steering swings the nose against the direction of travel (rad/s at full lock). */
 const DRIFT_SWING = 1.8;
 /** Largest slide angle (rad, ~57°): no spinning out. */
@@ -155,8 +159,10 @@ export class Vehicle {
   crushing = 0;
   /** 0..1, how much the car is in an (assisted) drift. */
   drift = 0;
-  /** Seconds the drift stays alive at a near-zero angle (switching sides through straight). */
-  private driftGrace = 0;
+  /** Is a drift running (started by the handbrake, ends when the car settles). */
+  private drifting = false;
+  /** How long the car has been running straight and calm during a drift. */
+  private driftSettled = 0;
   /** Body slip angle (rad, + = sliding to the left of the nose). */
   slip = 0;
   /** Average velocity of the surface under the wheels (moving platforms, carousel). */
@@ -284,6 +290,8 @@ export class Vehicle {
     }
     this.damage.reset();
     this.ghosts.clear();
+    this.drifting = false;
+    this.drift = 0;
     this.model.root.position.copy(pos);
     this.model.root.quaternion.copy(quat);
   }
@@ -365,15 +373,18 @@ export class Vehicle {
     const planar = Math.hypot(vFwd, vLeft);
     this.slip = planar > 2 ? Math.atan2(vLeft, Math.max(Math.abs(vFwd), 0.1)) : 0;
     const onGround = this.groundedCount >= 3;
-    const wantDrift =
-      onGround &&
-      this.gear > 0 &&
-      planar > DRIFT_MIN_SPEED &&
-      // the handbrake starts a drift; it lasts while the car is at an angle, or is being swung
-      // through straight to the other side (steering held)
-      ((handbrake && bIn < 0.1) || (this.drift > 0.2 && (Math.abs(this.slip) > 0.06 || (sIn !== 0 && this.driftGrace > 0))));
-    if (this.drift > 0.2 && Math.abs(this.slip) > 0.06) this.driftGrace = 0.6;
-    else this.driftGrace = Math.max(0, this.driftGrace - dt);
+    // the handbrake at speed starts a drift; it ends once the car has settled: slow, or running straight
+    // without spinning for a moment (a fast swing through straight to the other side keeps it going)
+    if (!this.drifting && handbrake && bIn < 0.1 && onGround && this.gear > 0 && planar > DRIFT_MIN_SPEED) {
+      this.drifting = true;
+      this.driftSettled = 0;
+    }
+    if (this.drifting) {
+      const calm = Math.abs(this.slip) < 0.1 && Math.abs(this.w.dot(up)) < 0.9;
+      this.driftSettled = calm ? this.driftSettled + dt : 0;
+      if (this.driftSettled > DRIFT_SETTLE_TIME || planar < DRIFT_EXIT_SPEED || this.gear <= 0 || this.airTime > 0.4) this.drifting = false;
+    }
+    const wantDrift = this.drifting;
     this.drift = moveTowards(this.drift, wantDrift ? 1 : 0, (wantDrift ? 4 : 2.5) * dt);
 
     // ---- steering (speed sensitive, rate limited) + Ackermann; drifting allows a full counter-steer
@@ -476,7 +487,8 @@ export class Vehicle {
       const vy = _pv.dot(wh.side);
       const alpha = Math.atan2(Math.abs(vy), Math.max(Math.abs(vx), 1.5));
       let lat = Math.max(pacejka(alpha), 1 - smoothstep(2, 6, Math.abs(vx)));
-      if (!wh.front && handbrake) lat *= 0.42;
+      // a locked rear axle slides, but at walking pace the tyres still hold the car
+      if (!wh.front && handbrake) lat *= 1 - 0.58 * smoothstep(4, 12, Math.abs(vx));
       // drifting: the rear steps out easily, the assist below keeps the slide under control
       lat *= 1 - (wh.front ? 0.85 : 0.9) * this.drift;
       wh.latFactor = lat;
@@ -563,15 +575,20 @@ export class Vehicle {
       const sp = Math.hypot(vf, vl);
       // nose angle relative to the path: + = nose left of where the car is going
       const angle = -Math.atan2(vl, Math.max(Math.abs(vf), 0.1));
-      let swing = -sIn * DRIFT_SWING; // steering left swings the nose left
-      if (bIn > 0.1 || throttle < 0.1) swing = -angle * 2.5; // relax towards straight
+      // steering left swings the nose left - on throttle or with the handbrake pulled (handbrake turn)
+      let swing = -sIn * DRIFT_SWING;
+      if (bIn > 0.1 || (throttle < 0.1 && !handbrake)) swing = -angle * 2.5; // relax towards straight
+      // at a shallow angle with the wheel straight the tyres bite again and line the car up
+      else if (sIn === 0 && !handbrake && Math.abs(angle) < 0.25) swing = -angle * 2;
       if (Math.abs(angle) > DRIFT_MAX_ANGLE && Math.sign(swing) === Math.sign(angle)) swing = 0;
       const pull = DRIFT_PULL * (0.35 + 0.65 * throttle) * Math.min(1, sp / 15);
       const pathRate = pull * clamp(angle, -0.8, 0.8);
       this.w.addScaledVector(up, (pathRate + swing - this.w.dot(up)) * Math.min(1, dt * 14) * k);
       // rotate the planar velocity by the path rate, keep (on throttle even gain a little) speed
       const turn = pathRate * dt * k;
-      const keep = Math.max(0, sp + (throttle * 2.2 - 0.6) * dt * k) / Math.max(sp, 1e-3);
+      // speed: throttle keeps it, a sideways slide on the handbrake scrubs it off
+      const scrub = handbrake ? 3 + 4 * Math.min(1, Math.abs(angle)) : 0.6;
+      const keep = Math.max(0, sp + (throttle * 2.2 - scrub) * dt * k) / Math.max(sp, 1e-3);
       const c = Math.cos(turn) * keep;
       const sn = Math.sin(turn) * keep;
       // in the (fwd, left) basis a left turn (+) rotates fwd towards left
