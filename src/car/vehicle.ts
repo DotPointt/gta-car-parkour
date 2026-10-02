@@ -38,10 +38,13 @@ const AIR_PITCH_MAX_RATE = 0.3;
 const AIR_ROLL = 3.2;
 const AIR_MAX_RATE = 3.0;
 
-// arcade drift: handbrake (or a big slide) at speed starts it, throttle + steering hold it
+// arcade drift: the handbrake at speed starts it, throttle + steering hold it
 const DRIFT_MIN_SPEED = 9;
-const DRIFT_RADIUS = 13; // m: tightest drift arc (yaw rate = speed / radius at full lock)
-const DRIFT_SLIP = 0.55; // rad (~30°): slide angle held with full throttle, less without it
+/** Slide angle (rad) held on full throttle: steering into the drift / neutral / counter-steering. */
+const DRIFT_ANGLE_IN = 0.75;
+const DRIFT_ANGLE = 0.5;
+const DRIFT_ANGLE_COUNTER = 0.3;
+const DRIFT_MAX_YAW = 2.2; // rad/s
 
 const INERTIA = new THREE.Vector3(3000, 3400, 800); // pitch, yaw, roll
 /** A blade that cut through the car stays a ghost this many steps after the last contact. */
@@ -151,6 +154,8 @@ export class Vehicle {
   crushing = 0;
   /** 0..1, how much the car is in an (assisted) drift. */
   drift = 0;
+  /** Which way the car drifts: +1 turning left, -1 turning right, 0 = not drifting. */
+  private driftDir = 0;
   /** Body slip angle (rad, + = sliding to the left of the nose). */
   slip = 0;
   /** Average velocity of the surface under the wheels (moving platforms, carousel). */
@@ -362,9 +367,9 @@ export class Vehicle {
     const wantDrift =
       onGround &&
       this.gear > 0 &&
-      bIn < 0.1 && // braking straightens the car out
       planar > DRIFT_MIN_SPEED &&
-      (handbrake || (this.drift > 0.2 ? Math.abs(this.slip) > 0.06 : Math.abs(this.slip) > 0.2));
+      // the handbrake starts a drift; once sliding it lasts while the car is still at an angle
+      ((handbrake && bIn < 0.1) || (this.drift > 0.2 && Math.abs(this.slip) > 0.06));
     this.drift = moveTowards(this.drift, wantDrift ? 1 : 0, (wantDrift ? 4 : 2.5) * dt);
 
     // ---- steering (speed sensitive, rate limited) + Ackermann; drifting allows a full counter-steer
@@ -390,7 +395,8 @@ export class Vehicle {
     const maxLen = CAR.travel + R;
     let grounded = 0;
     for (const wh of this.wheels) {
-      wh.steer = wh.front ? (wh.left ? steerL : steerR) : 0;
+      // drifting: the assist steers the slide, the front tyres only follow (no counter-steer kick)
+      wh.steer = wh.front ? (wh.left ? steerL : steerR) * (1 - 0.75 * this.drift) : 0;
       _a.copy(wh.local).applyQuaternion(this.quat).add(this.pos);
       wh.ray.origin = { x: _a.x, y: _a.y, z: _a.z };
       wh.ray.dir = { x: -up.x, y: -up.y, z: -up.z };
@@ -468,7 +474,7 @@ export class Vehicle {
       let lat = Math.max(pacejka(alpha), 1 - smoothstep(2, 6, Math.abs(vx)));
       if (!wh.front && handbrake) lat *= 0.42;
       // drifting: the rear steps out easily, the assist below keeps the slide under control
-      lat *= 1 - (wh.front ? 0.35 : 0.6) * this.drift;
+      lat *= 1 - (wh.front ? 0.5 : 0.65) * this.drift;
       wh.latFactor = lat;
 
       // drive
@@ -539,8 +545,10 @@ export class Vehicle {
       wh.spinAngle = (wh.spinAngle + wh.spinVel * dt) % (Math.PI * 2);
     }
 
-    // ---- arcade drift assist: steering sets the yaw rate, the slide angle settles at ~30° on throttle
-    // (straightens without it), the velocity follows the nose instead of scrubbing speed
+    // ---- arcade drift assist. The slide angle is held around a target picked by the steering: into the
+    // drift = wider, neutral = medium, counter-steer = shallow (it holds the slide, it does not flip the
+    // car). The slide carries the car round the corner without scrubbing speed; letting off the throttle
+    // shrinks the angle until the car straightens up.
     if (this.drift > 0.01 && onGround) {
       const k = this.drift;
       const g = this.groundV;
@@ -550,21 +558,38 @@ export class Vehicle {
       const sp = Math.hypot(vf, vl);
       const slip = Math.atan2(vl, Math.max(Math.abs(vf), 0.1));
       const yaw = this.w.dot(up);
-      const target = -sIn * Math.min(2.2, sp / DRIFT_RADIUS) + (sIn === 0 ? slip * 1.5 : 0);
-      this.w.addScaledVector(up, (target - yaw) * Math.min(1, dt * 6) * k);
-      const wantSlip = sIn === 0 ? 0 : DRIFT_SLIP * (0.35 + 0.65 * throttle);
-      // turn the planar velocity with the car (|yaw| keeps the angle) plus a pull towards wantSlip
-      const rate = Math.max(0, Math.abs(yaw) + 3 * (Math.abs(slip) - wantSlip)) * dt * k;
-      const a = clamp(slip, -rate, rate);
-      // on throttle the slide does not scrub speed away (arcade), off throttle it slowly bleeds
-      const keep = sp + (throttle * 2 - 1) * dt * k;
+      // velocity right of the nose (slip < 0) = the nose points into a left-hand drift
+      if (Math.abs(slip) > 0.08) this.driftDir = -Math.sign(slip);
+      else if (handbrake && sIn !== 0) this.driftDir = -Math.sign(sIn);
+      else if (this.driftDir === 0) this.driftDir = yaw >= 0 ? 1 : -1;
+      const dir = this.driftDir;
+      const into = -sIn * dir; // +1 steering into the drift, -1 counter-steering
+      // braking straightens the car (the drift then ends by itself), off throttle the angle shrinks
+      const want =
+        bIn > 0.1
+          ? 0
+          : (into >= 0 ? DRIFT_ANGLE + (DRIFT_ANGLE_IN - DRIFT_ANGLE) * into : DRIFT_ANGLE + (DRIFT_ANGLE - DRIFT_ANGLE_COUNTER) * into) *
+            (throttle > 0.1 ? 0.4 + 0.6 * throttle : 0);
+      const angle = Math.max(0, -slip * dir);
+      // the slide turns the path towards the drift: wider angle = tighter arc
+      const pathRate = dir * Math.min(DRIFT_MAX_YAW, sp * 0.11 * Math.min(angle, 0.8));
+      const target = clamp(pathRate + dir * 3.5 * (want - angle), -DRIFT_MAX_YAW - 1, DRIFT_MAX_YAW + 1);
+      this.w.addScaledVector(up, (target - yaw) * Math.min(1, dt * 14) * k);
+      // rotate the planar velocity with the path, keep (on throttle even gain a little) speed
+      const turn = pathRate * dt * k;
+      const keep = Math.max(0, sp + (throttle * 1.2 - 0.6) * dt * k) / Math.max(sp, 1e-3);
+      const c = Math.cos(turn) * keep;
+      const sn = Math.sin(turn) * keep;
+      // in the (fwd, left) basis a left turn (+) rotates fwd towards left
+      const nf = vf * c - vl * sn;
+      const nl = vf * sn + vl * c;
       this.v
         .copy(fwd)
-        .multiplyScalar(Math.cos(slip - a) * keep * Math.sign(vf || 1))
-        .addScaledVector(left, Math.sin(slip - a) * keep)
+        .multiplyScalar(nf)
+        .addScaledVector(left, nl)
         .addScaledVector(up, vUp)
         .add(_c.copy(g).addScaledVector(up, -g.dot(up)));
-    }
+    } else if (this.drift === 0) this.driftDir = 0;
 
     // ---- aerodynamics
     const sp = this.v.length();
