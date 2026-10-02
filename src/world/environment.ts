@@ -180,18 +180,20 @@ export class Environment {
     this.city.add(inst);
 
     // roads grid on the island (simple dark stripes)
-    const roadMat = new THREE.MeshStandardMaterial({ color: 0x33363b, roughness: 0.9 });
+    // lifted off the ground and drawn with a depth bias: seen from track altitude a few centimetres
+    // are below the depth buffer precision, and the stripes would flicker through the island
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x33363b, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
     const roads = new THREE.Group();
     for (let k = -960; k <= 960; k += 160) {
       const len = 2 * Math.sqrt(Math.max(0, 1000 * 1000 - k * k));
       if (len < 10) continue;
       const a = new THREE.Mesh(new THREE.PlaneGeometry(12, len), roadMat);
       a.rotation.x = -Math.PI / 2;
-      a.position.set(cx + k - 20, 4.05, cz);
+      a.position.set(cx + k - 20, 4.08, cz);
       roads.add(a);
       const b = new THREE.Mesh(new THREE.PlaneGeometry(len, 12), roadMat);
       b.rotation.x = -Math.PI / 2;
-      b.position.set(cx, 4.06, cz + k - 20);
+      b.position.set(cx, 4.08, cz + k - 20);
       roads.add(b);
     }
     this.city.add(roads);

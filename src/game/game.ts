@@ -11,6 +11,9 @@ import { Environment } from '../world/environment';
 import { ChaseCamera } from './camera';
 import { Hud, formatTime } from './hud';
 
+/** Fall = this far below the road level within FALL_RADIUS of the car, with no track underneath. */
+const FALL_MARGIN = 6;
+const FALL_RADIUS = 40;
 /** A drift combo survives this long without sliding (switching sides), then it is cashed in. */
 const DRIFT_COOLDOWN = 0.5;
 /** Shorter slides are not worth a combo. */
@@ -548,15 +551,33 @@ export class Game {
   private downRay = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
   private events = new RAPIER.EventQueue(true);
 
-  /** Fell off: far below the last road contact with no track underneath (long jumps are fine). */
+  /**
+   * Fell off: below the road level around the car with no track underneath. Flying above the
+   * course (long jumps, nitro flights over lower parts of the track) never counts as a fall.
+   */
   private isOffTrack() {
-    const car = this.car;
-    const p = car.currPos;
-    if (p.y < this.course.minY - 12 || p.y < car.lastGroundY - 45) return true;
-    if (p.y > car.lastGroundY - 9) return false;
+    const p = this.car.currPos;
+    if (p.y < this.course.minY - 12) return true;
+    if (p.y > this.roadLevelNear(p) - FALL_MARGIN) return false;
     this.downRay.origin = { x: p.x, y: p.y, z: p.z };
-    const hit = this.world.castRay(this.downRay, 60, true, undefined, WHEEL_RAY_GROUPS, undefined, car.body);
+    const hit = this.world.castRay(this.downRay, 60, true, undefined, WHEEL_RAY_GROUPS, undefined, this.car.body);
     return !hit;
+  }
+
+  /** Lowest road height within FALL_RADIUS horizontally (inside a loop: its bottom), else of the nearest road point. */
+  private roadLevelNear(p: THREE.Vector3) {
+    let low = Infinity;
+    let nearest = Infinity;
+    let nearestY = this.course.minY;
+    for (const q of this.course.path) {
+      const d2 = (q.x - p.x) ** 2 + (q.z - p.z) ** 2;
+      if (d2 < FALL_RADIUS * FALL_RADIUS) low = Math.min(low, q.y);
+      else if (d2 < nearest) {
+        nearest = d2;
+        nearestY = q.y;
+      }
+    }
+    return low < Infinity ? low : nearestY;
   }
 
   private update(dt: number) {

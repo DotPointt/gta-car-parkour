@@ -25,7 +25,7 @@ export class ChaseCamera {
   frozen = false; // stop following (falling off the track)
 
   constructor(aspect: number) {
-    this.camera = new THREE.PerspectiveCamera(62, aspect, 0.1, 12000);
+    this.camera = new THREE.PerspectiveCamera(62, aspect, 0.3, 12000);
   }
 
   cycle() {

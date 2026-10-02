@@ -156,7 +156,6 @@ export class Vehicle {
   private reverseTimer = 0;
   airTime = 0;
   groundedCount = 0;
-  lastGroundY = 0;
   speed = 0;
   fwdSpeed = 0;
   throttleOut = 0;
@@ -291,7 +290,6 @@ export class Vehicle {
     this.steerAngle = 0;
     this.shiftTimer = 0;
     this.airTime = 0;
-    this.lastGroundY = pos.y;
     this.speed = 0;
     this.fwdSpeed = 0;
     for (const w of this.wheels) {
@@ -448,10 +446,8 @@ export class Vehicle {
     this.groundedCount = grounded;
     this.groundV.set(0, 0, 0);
     for (const wh of this.wheels) if (wh.grounded) this.groundV.addScaledVector(wh.groundVel, 1 / grounded);
-    if (grounded > 0) {
-      this.airTime = 0;
-      this.lastGroundY = this.pos.y;
-    } else this.airTime += dt;
+    if (grounded > 0) this.airTime = 0;
+    else this.airTime += dt;
 
     // ---- engine / gearbox
     const driveForce = this.updateEngine(dt, throttle, fwdSpeed, grounded);
