@@ -607,7 +607,8 @@ export class Game {
   /** Drift combo: counts while the car slides, survives a short pause (side switch), then is cashed in. */
   private updateDrift(dt: number) {
     const c = this.car;
-    const sliding = c.drifting && c.drift > 0.5 && Math.abs(c.slip) > 0.15 && c.groundedCount >= 2;
+    // any real slide counts - a handbrake drift or a plain powerslide (normal cornering stays under ~6°)
+    const sliding = Math.abs(c.slip) > 0.15 && c.speed > 8 && c.groundedCount >= 2;
     if (sliding) {
       this.driftCombo += dt;
       this.driftIdle = 0;

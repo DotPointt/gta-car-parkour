@@ -9,6 +9,10 @@ export function formatTime(t: number) {
 }
 
 /** Drift combo milestones (seconds) and their call-outs: each one makes the counter glow harder. */
+/** The counter catches fire (orange) at FIRE seconds and burns blue from BLUE_FIRE on. */
+export const DRIFT_FIRE = 5;
+export const DRIFT_BLUE_FIRE = 10;
+
 export const DRIFT_TIERS: [number, string][] = [
   [2, 'ХОРОШО'],
   [4, 'КРУТО!'],
@@ -36,6 +40,19 @@ export class Hud {
   private driftTier = $('drift-tier');
   private driftBank = $('drift-bank');
   private shownTier = 0;
+
+  constructor() {
+    // flame tongues behind the drift counter (CSS animates them)
+    const fire = $('drift-fire');
+    for (let i = 0; i < 9; i++) {
+      const f = document.createElement('i');
+      f.style.setProperty('--x', `${4 + i * 10.5}%`);
+      f.style.setProperty('--d', `${0.55 + ((i * 37) % 7) * 0.06}s`);
+      f.style.setProperty('--delay', `${-((i * 53) % 9) * 0.07}s`);
+      f.style.setProperty('--h', `${60 + ((i * 29) % 5) * 9}%`);
+      fire.appendChild(f);
+    }
+  }
   private bannerTimer = 0;
   private bigTimer: number | undefined;
 
@@ -101,11 +118,14 @@ export class Hud {
     this.drift.classList.toggle('on', on);
     this.drift.classList.toggle('cool', on && !active);
     if (!on) {
+      this.drift.classList.remove('fire', 'fire-blue');
       this.shownTier = 0;
       this.drift.dataset.tier = '0';
       return 0;
     }
     this.driftTime.textContent = seconds.toFixed(1);
+    this.drift.classList.toggle('fire', seconds >= DRIFT_FIRE && seconds < DRIFT_BLUE_FIRE);
+    this.drift.classList.toggle('fire-blue', seconds >= DRIFT_BLUE_FIRE);
     let tier = 0;
     while (tier < DRIFT_TIERS.length && seconds >= DRIFT_TIERS[tier][0]) tier++;
     if (tier === this.shownTier) return 0;

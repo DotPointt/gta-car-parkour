@@ -267,3 +267,36 @@ html, body {
 #hud-timer.bonus { animation: timerBonus .8s ease-out; }
 @keyframes timerBonus { 0% { color: var(--ok); transform: translateX(-50%) scale(1.25); } 100% { color: #fff; transform: translateX(-50%) scale(1); } }
 .stats b.bonus { color: var(--ok); }
+
+/* drift counter on fire: weak orange flames from DRIFT_FIRE s, strong blue ones from DRIFT_BLUE_FIRE s */
+.drift-time { position: relative; z-index: 0; display: inline-block; }
+.drift-fire {
+  position: absolute; left: -12%; right: -12%; bottom: 8%; height: 120%; z-index: -1;
+  pointer-events: none; opacity: 0; transition: opacity .3s, height .3s; filter: blur(2.5px);
+  --f1: #fff3b0; --f2: #ff9a1a; --f3: rgba(255, 60, 0, .55);
+}
+.drift-fire i {
+  position: absolute; bottom: 0; left: var(--x); width: 20%; height: var(--h);
+  border-radius: 50% 50% 38% 38% / 62% 62% 38% 38%;
+  background: radial-gradient(ellipse at 50% 88%, var(--f1) 0%, var(--f2) 38%, var(--f3) 62%, transparent 74%);
+  transform-origin: 50% 100%;
+  animation: flameTongue var(--d) ease-in var(--delay) infinite;
+}
+@keyframes flameTongue {
+  0% { transform: translateY(8%) scale(1.05, .7); opacity: .9; }
+  45% { opacity: 1; }
+  100% { transform: translateY(-48%) scale(.35, 1.35); opacity: 0; }
+}
+.drift.fire .drift-fire { opacity: .7; }
+.drift.fire-blue .drift-fire { opacity: 1; height: 175%; filter: blur(2px); --f1: #f2fdff; --f2: #3fb4ff; --f3: rgba(30, 70, 255, .6); }
+.drift.fire-blue .drift-fire i { animation-duration: calc(var(--d) * .75); }
+.drift.fire #drift-time { animation: fireFlicker .14s infinite alternate; }
+.drift.fire-blue #drift-time { animation: blueFlicker .1s infinite alternate; }
+@keyframes fireFlicker {
+  from { text-shadow: 0 3px 0 #000, 0 0 10px #ff8a00, 0 -6px 18px #ff5a00; }
+  to { text-shadow: 0 3px 0 #000, 0 0 16px #ffb000, 0 -10px 26px #ff3d00; }
+}
+@keyframes blueFlicker {
+  from { text-shadow: 0 3px 0 #000, 0 0 14px #5ac8ff, 0 -8px 26px #1e6bff, 0 -16px 40px #1e6bff; }
+  to { text-shadow: 0 3px 0 #000, 0 0 22px #9fe2ff, 0 -14px 36px #2f7dff, 0 -24px 54px #2f50ff; }
+}
