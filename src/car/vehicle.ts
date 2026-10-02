@@ -611,9 +611,9 @@ export class Vehicle {
         .add(_c.copy(g).addScaledVector(up, -g.dot(up)));
     }
 
-    // ---- nitro: a push along the nose while on the ground, drains the tank
+    // ---- nitro: a push along the nose in 3D - on the ground, on a loop wall or in the air (nose up = up)
     this.boosting = false;
-    if (controls && input.nitro && this.nitro > 0 && grounded >= 2 && this.gear > 0 && fwdSpeed < NITRO_MAX_SPEED) {
+    if (controls && input.nitro && this.nitro > 0 && fwdSpeed < NITRO_MAX_SPEED) {
       this.boosting = true;
       this.nitro = Math.max(0, this.nitro - dt / NITRO_TIME);
       this.v.addScaledVector(fwd, NITRO_ACCEL * dt);
