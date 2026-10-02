@@ -10,6 +10,11 @@ import { LevelLibrary, difficultyLabel, obstacleTitles } from '../levels/generat
 import { Environment } from '../world/environment';
 import { ChaseCamera } from './camera';
 import { Hud, formatTime } from './hud';
+
+/** A drift combo survives this long without sliding (switching sides), then it is cashed in. */
+const DRIFT_COOLDOWN = 0.5;
+/** Shorter slides are not worth a combo. */
+const DRIFT_MIN_COMBO = 0.3;
 import { Particles } from '../fx/particles';
 import { Debris } from '../fx/debris';
 import { setMaxAnisotropy, softDotTexture } from '../gfx/textures';
@@ -89,6 +94,10 @@ export class Game {
   private menuTime = 0;
   private finishConfetti = 0;
   private lowFpsFrames = 0;
+  /** Current drift combo (s), time since the car last slid, and the total cashed in this race. */
+  private driftCombo = 0;
+  private driftIdle = 0;
+  private driftBonus = 0;
   /** Levels finished at least once (unlock car colours). */
   private completed = new Set<number>();
 
@@ -346,6 +355,10 @@ export class Game {
     this.resetCarToStart();
     this.falls = 0;
     this.raceTime = 0;
+    this.driftCombo = 0;
+    this.driftIdle = 0;
+    this.driftBonus = 0;
+    this.hud.setDrift(0, false);
     this.sectionIdx = 0;
     this.checkpoint = null;
     this.hud.setFalls(0);
@@ -379,6 +392,7 @@ export class Game {
   }
 
   private finishRace() {
+    this.bankDrift();
     this.state = 'finished';
     const t = this.raceTime;
     const record = t < this.best;
@@ -409,6 +423,7 @@ export class Game {
       if (this.state !== 'finished') return;
       document.getElementById('finish-time')!.textContent = formatTime(t);
       document.getElementById('finish-falls')!.textContent = String(this.falls);
+      document.getElementById('finish-drift')!.textContent = `−${formatTime(this.driftBonus)}`;
       document.getElementById('finish-best')!.textContent = formatTime(this.best);
       this.show('finish-record', record);
       this.show('finish-unlock', unlocked);
@@ -417,6 +432,9 @@ export class Game {
   }
 
   private fellOff() {
+    // a combo that ends in a fall is lost
+    this.driftCombo = 0;
+    this.hud.setDrift(0, false);
     this.state = 'falling';
     this.fallTimer = 1.7;
     this.falls++;
@@ -426,6 +444,8 @@ export class Game {
   }
 
   private respawn() {
+    this.driftCombo = 0;
+    this.hud.setDrift(0, false);
     const cp = this.settings.respawn === 'checkpoint' ? this.checkpoint : null;
     if (cp) {
       this.car.reset(cp.spawnPos, yawQuat(cp.yaw));
@@ -554,6 +574,7 @@ export class Game {
       }
       case 'racing':
         this.raceTime += dt;
+        this.updateDrift(dt);
         if (input.wasPressed('respawn')) {
           this.hud.setFade(true);
           window.setTimeout(() => this.hud.setFade(false), 250);
@@ -581,6 +602,34 @@ export class Game {
     }
     if (this.state !== 'menu') this.hud.setTime(this.raceTime);
     this.hud.setCar(Math.abs(car.fwdSpeed) * 3.6, car.gear, car.rpm, REDLINE);
+  }
+
+  /** Drift combo: counts while the car slides, survives a short pause (side switch), then is cashed in. */
+  private updateDrift(dt: number) {
+    const c = this.car;
+    const sliding = c.drifting && c.drift > 0.5 && Math.abs(c.slip) > 0.15 && c.groundedCount >= 2;
+    if (sliding) {
+      this.driftCombo += dt;
+      this.driftIdle = 0;
+    } else if (this.driftCombo > 0) {
+      this.driftIdle += dt;
+      if (this.driftIdle > DRIFT_COOLDOWN) this.bankDrift();
+    }
+    const tier = this.hud.setDrift(this.driftCombo, sliding);
+    if (tier) this.audio.chime(tier);
+  }
+
+  /** Subtract the finished combo from the race time. */
+  private bankDrift() {
+    const combo = this.driftCombo;
+    this.driftCombo = 0;
+    this.driftIdle = 0;
+    this.hud.setDrift(0, false);
+    if (combo < DRIFT_MIN_COMBO) return;
+    this.raceTime = Math.max(0, this.raceTime - combo);
+    this.driftBonus += combo;
+    this.hud.bankDrift(combo);
+    this.audio.chime(0, true);
   }
 
   private checkSections() {

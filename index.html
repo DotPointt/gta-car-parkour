@@ -22,6 +22,12 @@
       </div>
       <div id="hud-timer">00:00.000</div>
       <div id="hud-section"></div>
+      <div id="drift" class="drift">
+        <div class="drift-lbl">ДРИФТ</div>
+        <div class="drift-time"><span id="drift-time">0.0</span><small>с</small></div>
+        <div id="drift-tier" class="drift-tier"></div>
+      </div>
+      <div id="drift-bank" class="drift-bank"></div>
       <div id="hud-speedo">
         <div id="hud-speed">0</div>
         <div class="unit">км/ч</div>
@@ -76,7 +82,7 @@
           <div><b>W / ↑</b> газ</div>
           <div><b>S / ↓</b> тормоз / задний ход</div>
           <div><b>A D / ← →</b> руль</div>
-          <div><b>Пробел</b> ручник / дрифт</div>
+          <div><b>Пробел</b> ручник / дрифт (−время!)</div>
           <div><b>В воздухе</b>: W/S — лёгкий наклон, A/D — крен</div>
           <div><b>R</b> респаун · <b>C</b> камера · <b>M</b> звук</div>
           <div><b>Мышь</b> (зажать) — обзор · <b>Esc</b> — пауза</div>
@@ -103,6 +109,7 @@
         <div class="stats">
           <div><span>Время</span><b id="finish-time">00:00.000</b></div>
           <div><span>Падения</span><b id="finish-falls">0</b></div>
+          <div><span>Бонус за дрифт</span><b id="finish-drift" class="bonus">−0.000</b></div>
           <div><span>Рекорд</span><b id="finish-best">--</b></div>
         </div>
         <button id="btn-next" class="big-btn">СЛЕДУЮЩАЯ ТРАССА</button>

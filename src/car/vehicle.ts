@@ -160,7 +160,7 @@ export class Vehicle {
   /** 0..1, how much the car is in an (assisted) drift. */
   drift = 0;
   /** Is a drift running (started by the handbrake, ends when the car settles). */
-  private drifting = false;
+  drifting = false;
   /** How long the car has been running straight and calm during a drift. */
   private driftSettled = 0;
   /** Body slip angle (rad, + = sliding to the left of the nose). */

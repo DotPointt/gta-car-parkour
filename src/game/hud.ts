@@ -8,6 +8,15 @@ export function formatTime(t: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
 }
 
+/** Drift combo milestones (seconds) and their call-outs: each one makes the counter glow harder. */
+export const DRIFT_TIERS: [number, string][] = [
+  [2, 'ХОРОШО'],
+  [4, 'КРУТО!'],
+  [7, 'ОГОНЬ!'],
+  [11, 'БЕЗУМИЕ!'],
+  [16, 'ЛЕГЕНДА!'],
+];
+
 /** Thin wrapper around the DOM overlay. */
 export class Hud {
   private hud = $('hud');
@@ -22,6 +31,11 @@ export class Hud {
   private banner = $('banner');
   private big = $('bigmsg');
   private fade = $('fade');
+  private drift = $('drift');
+  private driftTime = $('drift-time');
+  private driftTier = $('drift-tier');
+  private driftBank = $('drift-bank');
+  private shownTier = 0;
   private bannerTimer = 0;
   private bigTimer: number | undefined;
 
@@ -76,6 +90,43 @@ export class Hud {
   clearBig() {
     this.big.className = '';
     this.big.textContent = '';
+  }
+
+  /**
+   * Drift combo counter. `active` = sliding right now (otherwise it waits out the cooldown).
+   * Returns the tier index when a new milestone was just reached (for a sound), else 0.
+   */
+  setDrift(seconds: number, active: boolean): number {
+    const on = seconds > 0;
+    this.drift.classList.toggle('on', on);
+    this.drift.classList.toggle('cool', on && !active);
+    if (!on) {
+      this.shownTier = 0;
+      this.drift.dataset.tier = '0';
+      return 0;
+    }
+    this.driftTime.textContent = seconds.toFixed(1);
+    let tier = 0;
+    while (tier < DRIFT_TIERS.length && seconds >= DRIFT_TIERS[tier][0]) tier++;
+    if (tier === this.shownTier) return 0;
+    this.shownTier = tier;
+    this.drift.dataset.tier = String(tier);
+    this.driftTier.textContent = tier ? DRIFT_TIERS[tier - 1][1] : '';
+    this.drift.classList.remove('burst');
+    void this.drift.offsetWidth; // restart the animation
+    this.drift.classList.add('burst');
+    return tier;
+  }
+
+  /** The combo is cashed in: "−3.2 с" floats up to the timer. */
+  bankDrift(seconds: number) {
+    const el = this.driftBank;
+    el.textContent = `−${seconds.toFixed(1)} с`;
+    el.classList.remove('go');
+    this.timer.classList.remove('bonus');
+    void el.offsetWidth;
+    el.classList.add('go');
+    this.timer.classList.add('bonus');
   }
 
   setFade(on: boolean) {

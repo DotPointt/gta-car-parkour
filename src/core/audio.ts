@@ -243,6 +243,27 @@ export class GameAudio {
     o.stop(t + 0.8);
   }
 
+  /** Rising chime for drift milestones (tier 1..5) and a two-note "cash in" when banked. */
+  chime(tier: number, bank = false) {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const notes = bank ? [784, 1175] : [523 * Math.pow(2, (tier - 1) / 4)];
+    notes.forEach((f, i) => {
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = f;
+      const g = ctx.createGain();
+      const t0 = t + i * 0.09;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.45);
+      o.connect(g).connect(this.master);
+      o.start(t0);
+      o.stop(t0 + 0.5);
+    });
+  }
+
   whoosh() {
     const ctx = this.ctx;
     if (!ctx) return;

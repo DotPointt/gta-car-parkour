@@ -225,3 +225,45 @@ html, body {
 .swatch.locked::after { content: '🔒'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; filter: none; }
 .colors-info { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--muted); display: block; }
 .unlock { color: var(--accent); font-family: var(--font-title); letter-spacing: 2px; margin-top: 8px; font-size: 18px; }
+
+/* ---------------- Drift combo ---------------- */
+.drift {
+  position: absolute; top: 104px; left: 50%; transform: translateX(-50%) scale(.6);
+  text-align: center; pointer-events: none; opacity: 0;
+  transition: opacity .2s, transform .2s;
+  --glow: 0px; --tint: #ffd23a;
+}
+.drift.on { opacity: 1; transform: translateX(-50%) scale(1); }
+.drift.cool { opacity: .55; }
+.drift-lbl { font-family: var(--font-title); font-size: 16px; letter-spacing: 6px; color: #fff; text-shadow: 0 2px 0 #000; }
+.drift-time {
+  font-family: var(--font-title); font-size: 64px; line-height: 1; color: var(--tint);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 3px 0 #000, 0 0 var(--glow) var(--tint), 0 0 calc(var(--glow) * 2) var(--tint);
+}
+.drift-time small { font-size: 26px; margin-left: 4px; }
+.drift-tier { font-family: var(--font-title); font-size: 20px; letter-spacing: 4px; color: var(--tint); min-height: 24px; text-shadow: 0 2px 0 #000, 0 0 var(--glow) var(--tint); }
+.drift[data-tier="1"] { --glow: 8px; --tint: #ffd23a; }
+.drift[data-tier="2"] { --glow: 14px; --tint: #ffc21a; }
+.drift[data-tier="3"] { --glow: 20px; --tint: #ffab00; }
+.drift[data-tier="4"] { --glow: 28px; --tint: #ff8a00; }
+.drift[data-tier="5"] { --glow: 38px; --tint: #ff5a1f; }
+.drift[data-tier="4"] .drift-time, .drift[data-tier="5"] .drift-time { animation: driftShake .12s infinite alternate; }
+.drift.burst .drift-time { animation: driftBurst .45s ease-out; }
+@keyframes driftBurst { 0% { transform: scale(1.6); filter: brightness(2); } 100% { transform: scale(1); filter: none; } }
+@keyframes driftShake { from { transform: translate(-1px, 0) rotate(-1deg); } to { transform: translate(1px, 0) rotate(1deg); } }
+.drift-bank {
+  position: absolute; top: 120px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-title); font-size: 46px; color: var(--ok); opacity: 0; pointer-events: none;
+  text-shadow: 0 3px 0 #000, 0 0 16px var(--ok); white-space: nowrap;
+}
+.drift-bank.go { animation: driftBank 1.3s ease-out forwards; }
+@keyframes driftBank {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(.7); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1.15); }
+  60% { opacity: 1; transform: translate(-50%, -40px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -90px) scale(.6); }
+}
+#hud-timer.bonus { animation: timerBonus .8s ease-out; }
+@keyframes timerBonus { 0% { color: var(--ok); transform: translateX(-50%) scale(1.25); } 100% { color: #fff; transform: translateX(-50%) scale(1); } }
+.stats b.bonus { color: var(--ok); }
