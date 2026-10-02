@@ -39,7 +39,6 @@ export const carousel: SegmentDef<CarouselParams> = {
   build(kit, s, p) {
     kit.section('КАРУСЕЛЬ', 'Диск крутится — держи руль', s, 2);
     kit.road(s, APPROACH, ROAD_W);
-    kit.boostPad(s, 4, 12, ROAD_W - 2, 14, 'down');
     const center = local(s, 0, 0, APPROACH + GAP + p.radius);
     kit.carousel(center, p.radius, p.omega, p.pillars);
     for (const pt of linePoints(s, APPROACH + 2, across(p) - 2, 4)) kit.path.push(pt);

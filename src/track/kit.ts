@@ -22,8 +22,8 @@ export interface BoostPad {
   trigger: BoxTrigger;
   dir: THREE.Vector3;
   speed: number;
-  /** up = speed boost (green), down = speed limiter (red), like GTA stunt races */
-  mode: 'up' | 'down';
+  /** up = speed boost only; exact = sets the speed both ways (jumps and loops need a precise entry speed) */
+  mode: 'up' | 'exact';
   mat: THREE.MeshStandardMaterial;
 }
 
@@ -66,12 +66,8 @@ export class Kit {
   spawnYaw = 0;
   finish: BoxTrigger | null = null;
   finishPoint = new THREE.Vector3();
-  private slowTex: THREE.Texture;
 
-  constructor(readonly b: TrackBuilder, readonly mats: Materials, readonly level: { index: number; name: string }) {
-    this.slowTex = TX.slowTexture();
-    b.own(new THREE.MeshBasicMaterial({ map: this.slowTex })); // disposes the texture with the level
-  }
+  constructor(readonly b: TrackBuilder, readonly mats: Materials, readonly level: { index: number; name: string }) {}
 
   // ---- registries --------------------------------------------------------------------------
   section(name: string, sub: string, c: Cursor, spawnAhead = 6, checkpoint = true) {
@@ -134,10 +130,10 @@ export class Kit {
     return { p: local(c, 0, 0, len), yaw: c.yaw };
   }
 
-  /** Green (mode up) or red (mode down) speed pad on the road, z..z+len ahead of the cursor. */
-  boostPad(c: Cursor, z: number, len: number, w: number, speed: number, mode: 'up' | 'down' = 'up') {
+  /** Green speed pad on the road, z..z+len ahead of the cursor. */
+  boostPad(c: Cursor, z: number, len: number, w: number, speed: number, mode: 'up' | 'exact' = 'up') {
     const mat = this.b.own(this.mats.boost.clone());
-    mat.map = (mode === 'up' ? this.mats.boost.map! : this.slowTex).clone();
+    mat.map = this.mats.boost.map!.clone();
     mat.map.needsUpdate = true;
     mat.emissiveMap = mat.map;
     mat.map.repeat.set(1, len / 6);
@@ -158,10 +154,12 @@ export class Kit {
     });
   }
 
-  /** Red limiter pad (and optional green boost) at the start of an obstacle's approach road. */
-  speedGate(c: Cursor, cap: number, boost?: number, w = ROAD_W) {
-    this.boostPad(c, 4, 12, w - 2, cap, 'down');
-    if (boost) this.boostPad(c, 26, 14, w - 6, boost, 'up');
+  /**
+   * Green pad on a jump/loop approach that sets the entry speed exactly (speeds the car up or reins it
+   * in), so the jump math holds whatever came before. There are no red limiter pads in the game.
+   */
+  speedGate(c: Cursor, speed: number, w = ROAD_W) {
+    this.boostPad(c, 26, 14, w - 6, speed, 'exact');
   }
 
   // ---- decor ---------------------------------------------------------------------------------

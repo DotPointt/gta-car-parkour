@@ -63,7 +63,7 @@ export function jumpPath(l: JumpLayout) {
 export function buildJump(kit: Kit, s: Cursor, p: JumpParams) {
   const l = jumpLayout(s, p);
   kit.extrudeRoad(l.approach, ROAD_W);
-  kit.speedGate(s, p.v, p.v);
+  kit.speedGate(s, p.v);
   kit.extrudeRoad(l.kicker, ROAD_W);
   kit.extrudeRoad(l.ramp, WIDE_W);
   const a = (p.angle * Math.PI) / 180;

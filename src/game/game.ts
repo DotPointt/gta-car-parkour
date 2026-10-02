@@ -437,7 +437,7 @@ export class Game {
       const bp = this.course.boosts[i];
       if (bp.trigger.contains(car.currPos)) {
         const vAlong = car.v.dot(bp.dir);
-        if (bp.mode === 'up' ? vAlong < bp.speed : vAlong > bp.speed) {
+        if (bp.mode === 'exact' ? Math.abs(vAlong - bp.speed) > 0.05 : vAlong < bp.speed) {
           _v.copy(car.v).addScaledVector(bp.dir, (bp.speed - vAlong) * Math.min(1, dt * 12));
           car.body.setLinvel(_v, true);
           car.v.copy(_v);

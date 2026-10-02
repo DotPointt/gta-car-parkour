@@ -34,7 +34,6 @@ export const presses: SegmentDef<PressesParams> = {
   build(kit, s, p) {
     kit.section('ПРЕССЫ', 'Не стой под прессом!', s, 2);
     const out = kit.road(s, obstacleRoadLength(p.units.length, p.spacing), W);
-    kit.speedGate(s, 18, undefined, W);
     p.units.forEach((u, i) => kit.press(s, obstacleZ(i, p.spacing), u.period, u.phase, u.split));
     return out;
   },

@@ -56,8 +56,8 @@ export type SegmentKind = 'fixed' | 'connector' | 'obstacle';
  *  - randomize() must be deterministic for a given rng state;
  *  - layout() must be pure and return the SAME exit/path that build() creates;
  *  - build() creates geometry through the Kit and returns the exit cursor;
- *  - obstacles that are dangerous at high speed start with a speed gate (red pad),
- *    speed-critical ones (jumps, loops) with red + green pads, so any order of segments works.
+ *  - speed-critical obstacles (jumps, loops) start with a green pad that sets the entry speed exactly,
+ *    so any order of segments works; there are no red limiter pads (the player controls the speed).
  */
 export interface SegmentDef<P extends Record<string, unknown> = Record<string, unknown>> {
   type: string;

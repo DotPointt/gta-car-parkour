@@ -57,7 +57,6 @@ export const windmills: SegmentDef<WindmillsParams> = {
       return { u, z };
     });
     const out = kit.slottedRoad(s, obstacleRoadLength(p.units.length, p.spacing), ROAD_W, slots, SLOT);
-    kit.speedGate(s, 24);
     for (const { u, z } of units) {
       if (u.twin) {
         kit.windmill(s, -TWIN.x, z - TWIN.dz, u.omega, u.phase, u.blades, TWIN.R, TWIN.hubH);

@@ -61,7 +61,6 @@ export const downhill: SegmentDef<DownhillParams> = {
     kit.extrudeRoad(rf, ROAD_W, 1.8);
     kit.extrudeRoad(tail, ROAD_W, 1.8);
     kit.sign(local(e, 0, 7, 40), e.yaw, ['ТОРМОЗИ!', 'ВПЕРЕДИ ПРЕПЯТСТВИЯ'], 14, 7, '#e2362f', '#ffffff');
-    kit.boostPad(endCursor(rf), 4, 12, ROAD_W - 2, 28, 'down');
     return endCursor(tail);
   },
   signature: (p) => `D${q(p.drop, 10)}k${p.k}${p.amp > 0 ? 'r' : 'l'}`,

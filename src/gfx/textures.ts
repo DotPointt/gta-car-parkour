@@ -154,30 +154,6 @@ export function boostTexture() {
   return tex(c);
 }
 
-/** Red speed-limiter pad (arrows point backwards). */
-export function slowTexture() {
-  const W = 256, H = 256;
-  const { c, g } = canvas(W, H);
-  g.fillStyle = '#3d0b0b';
-  g.fillRect(0, 0, W, H);
-  g.fillStyle = '#ff3b30';
-  for (let y = 0; y < H; y += 128) {
-    g.beginPath();
-    g.moveTo(W / 2, y + 116);
-    g.lineTo(W - 30, y + 48);
-    g.lineTo(W - 30, y + 12);
-    g.lineTo(W / 2, y + 80);
-    g.lineTo(30, y + 12);
-    g.lineTo(30, y + 48);
-    g.closePath();
-    g.fill();
-  }
-  g.strokeStyle = '#ff3b30';
-  g.lineWidth = 8;
-  g.strokeRect(4, -10, W - 8, H + 20);
-  return tex(c);
-}
-
 /** Metal deck plate for platforms. */
 export function plateTexture() {
   const S = 256;

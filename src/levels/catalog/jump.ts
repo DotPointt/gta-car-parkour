@@ -11,7 +11,7 @@ export const jump: SegmentDef<JumpParams> = {
   type: 'jump',
   kind: 'obstacle',
   title: 'ПРЫЖОК',
-  summary: 'Трамплин 8–13° над пропастью 12–30 м; скорость задают красный и зелёный пады; на сложных уровнях — пролёт сквозь винт',
+  summary: 'Трамплин 8–13° над пропастью 12–30 м; скорость задаёт зелёный пад; на сложных уровнях — пролёт сквозь винт',
   minDifficulty: 0,
   weight: () => 1.1,
   randomize: (rng, d) => randomJump(rng, d, d > 0.35 ? 0.25 + 0.4 * d : 0),
@@ -25,7 +25,6 @@ export const jump: SegmentDef<JumpParams> = {
     const l = buildJump(kit, s, p);
     const run = lineFrames(l.rampEnd, RUNOUT, 2);
     kit.extrudeRoad(run, WIDE_W);
-    kit.boostPad(l.rampEnd, 14, 12, WIDE_W - 4, 30, 'down');
     return endCursor(run);
   },
   signature: (p) => `J${q(p.gap, 4)}a${q(p.angle, 2)}${p.prop ? 'p' + p.propBlades : ''}`,

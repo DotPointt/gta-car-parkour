@@ -54,11 +54,10 @@ export const loop: SegmentDef<LoopParams> = {
     const v = loopSpeed(p);
     kit.section('ПЕТЛЯ', 'Нужна скорость — жми газ и не рули!', s, 3);
     kit.extrudeRoad(approach, ROAD_W);
-    kit.speedGate(s, v, v);
+    kit.speedGate(s, v);
     kit.sign(local(s, 0, 8.5, 52), s.yaw, ['ПЕТЛЯ', 'НЕ РУЛИ!'], 12, 6);
     kit.extrudeRoad(frames, LOOP_W, 0.9, false);
     kit.extrudeRoad(out, ROAD_W);
-    kit.boostPad({ p: out[0].p.clone(), yaw: s.yaw }, 14, 12, ROAD_W - 2, 30, 'down');
     return endCursor(out);
   },
   signature: (p) => `L${Math.round(p.a)}${Math.round(p.b)}${p.side > 0 ? 'r' : 'l'}`,

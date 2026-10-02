@@ -41,7 +41,6 @@ export const propellers: SegmentDef<PropellersParams> = {
   build(kit, s, p) {
     kit.section('ПРОПЕЛЛЕРЫ', 'Жмись к краю — лопасти проходят впритирку', s, 2);
     const out = kit.road(s, obstacleRoadLength(p.units.length, p.spacing), W);
-    kit.speedGate(s, 22, undefined, W);
     p.units.forEach((u, i) => kit.propeller(s, obstacleZ(i, p.spacing), u.omega, u.phase, u.blades, W / 2 - PROP_LANE));
     return out;
   },

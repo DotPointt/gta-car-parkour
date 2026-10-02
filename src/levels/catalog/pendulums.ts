@@ -33,7 +33,6 @@ export const pendulums: SegmentDef<PendulumsParams> = {
   build(kit, s, p) {
     kit.section('МАЯТНИКИ', 'Проскочи, пока молот на краю', s, 2);
     const out = kit.road(s, obstacleRoadLength(p.units.length, p.spacing), W);
-    kit.speedGate(s, 20, undefined, W);
     p.units.forEach((u, i) => kit.pendulum(s, obstacleZ(i, p.spacing), u.period, u.phase, u.amp));
     return out;
   },

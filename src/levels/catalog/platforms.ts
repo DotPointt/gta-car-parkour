@@ -50,7 +50,6 @@ export const platforms: SegmentDef<PlatformsParams> = {
   build(kit, s, p) {
     kit.section('ДВИЖУЩИЕСЯ ПЛАТФОРМЫ', 'Лови момент — платформа везёт машину', s, 2);
     let c: Cursor = kit.pad(s, WIDE_W, PAD_IN);
-    kit.boostPad(s, 2, 12, WIDE_W - 4, 14, 'down');
     for (let i = 0; i < p.n; i++) {
       const z = GAP + LEN / 2 + i * (LEN + GAP);
       kit.path.push(local(c, 0, 0, z));
